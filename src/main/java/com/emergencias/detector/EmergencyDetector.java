@@ -19,8 +19,8 @@ public class EmergencyDetector {
     /**
      * Constructor de la clase EmergencyDetector
      */
-    public EmergencyDetector(UserData userData) {
-        this.scanner = new Scanner(System.in);  // Inicializa el lector de consola
+    public EmergencyDetector(UserData userData, Scanner scanner) {
+        this.scanner = scanner;  // Usa el scanner compartido
         this.userData = userData;  // Almacena los datos del usuario
     }
 

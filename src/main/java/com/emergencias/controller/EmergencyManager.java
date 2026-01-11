@@ -1,6 +1,7 @@
 package com.emergencias.controller;
 
 import com.emergencias.alert.AlertSender;
+import com.emergencias.alert.EmergencyLogger;
 import com.emergencias.detector.EmergencyDetector;
 import com.emergencias.model.EmergencyEvent;
 import com.emergencias.model.UserData;
@@ -14,14 +15,18 @@ public class EmergencyManager {
     private final EmergencyDetector detector;  // Para detectar emergencias
     private final AlertSender alertSender;     // Para enviar notificaciones
     private final UserData userData;           // Datos del usuario actual
+    private final EmergencyLogger logger;      // Para registrar emergencias y feedback
+    private final Scanner scanner;             // Scanner compartido de la aplicación
 
     /**
      Constructor que inicializa el gestor de emergencias con los datos del usuario.
      */
-    public EmergencyManager(UserData userData) {
+    public EmergencyManager(UserData userData, Scanner scanner) {
         this.userData = userData;  // Almacenar datos del usuario
-        this.detector = new EmergencyDetector(userData);  // Inicializar detector
+        this.scanner = scanner;    // Almacenar el scanner compartido
+        this.detector = new EmergencyDetector(userData, scanner);  // Inicializar detector
         this.alertSender = new AlertSender();  // Inicializar sistema de alertas
+        this.logger = new EmergencyLogger();  // Inicializar sistema de logging
     }
 
     /**
@@ -35,10 +40,7 @@ public class EmergencyManager {
         System.out.println("=========================================\n");
         
         // Obtener datos del usuario al iniciar
-        userData.collectUserData();
-        
-        // Inicializar Scanner para entrada de usuario
-        Scanner scanner = new Scanner(System.in);
+        userData.collectUserData(scanner);
         
         // Bucle principal
         try {
@@ -48,16 +50,24 @@ public class EmergencyManager {
             
             // Si se detectó una emergencia válida
             if (event != null) {
-                // Paso 2: Enviar alerta a servicios de emergencia
+                // Paso 2: Registrar la emergencia en el log
+                String emergencyId = logger.logEmergency(event);
+                System.out.println("\nEmergencia registrada con ID: " + emergencyId);
+                
+                // Paso 3: Enviar alerta a servicios de emergencia
                 boolean alertSent = alertSender.sendAlert(event);
                 
                 if (alertSent) {
-                    // Paso 3: Notificar a los contactos de emergencia
+                    // Paso 4: Notificar a los contactos de emergencia
                     alertSender.notifyEmergencyContacts(userData.toString(), event);
                 
                     // Confirmación al usuario
                     System.out.println("\n¡Emergencia reportada con éxito!");
                     System.out.println("Se ha creado un registro de la emergencia en el sistema.");
+                    
+                    // Paso 5: Solicitar feedback del usuario
+                    logger.collectAndLogFeedback(emergencyId, scanner);
+                    System.out.println("\nGracias por tu feedback. Nos ayuda a mejorar el sistema.");
                 } else {
                     // Manejo de error en el envío de alerta
                     System.out.println("\nNo se pudo enviar la alerta. Por favor, intente nuevamente o llame al 112 manualmente.");
@@ -78,8 +88,7 @@ public class EmergencyManager {
                 System.out.println("\n" + "=".repeat(80) + "\n");
             }
         } finally {
-            // Asegurarse de cerrar el scanner al salir
-            scanner.close();
+            // El scanner se cierra en Main.java
         }
     }
 }

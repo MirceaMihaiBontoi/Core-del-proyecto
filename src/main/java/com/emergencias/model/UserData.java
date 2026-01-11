@@ -80,9 +80,7 @@ public class UserData {
      * Este método guía al usuario a través de un proceso paso a paso
      * para ingresar su información personal y de contacto de emergencia.
      */
-    public void collectUserData() {
-        Scanner scanner = new Scanner(System.in);
-        
+    public void collectUserData(Scanner scanner) {
         System.out.println("\n=== REGISTRO DE DATOS DE USUARIO ===");
         
         // Obtener nombre completo
@@ -103,8 +101,6 @@ public class UserData {
         
         System.out.println("\n¡Gracias! Sus datos han sido registrados correctamente.");
         System.out.println("==========================================\n");
-        
-        // No cerramos el scanner aquí porque podría estar siendo usado por el flujo principal
     }
 
     /**
