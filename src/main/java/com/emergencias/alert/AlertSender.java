@@ -14,7 +14,7 @@ import java.time.format.DateTimeFormatter;
 public class AlertSender implements IAlert {
     // Constantes de configuración
     private static final String EMERGENCY_NUMBER = "112";  // Número de emergencias estándar
-    private static final String ALERTS_FILE = "emergency_alerts.log";  // Archivo de registro de alertas
+    private static final String ALERTS_FILE = "logs/emergency_alerts.log";  // Archivo de registro de alertas
     
     // Formato para las marcas de tiempo en los registros
     private static final DateTimeFormatter TIMESTAMP_FORMAT = 

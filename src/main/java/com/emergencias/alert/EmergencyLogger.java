@@ -2,6 +2,7 @@ package com.emergencias.alert;
 
 import com.emergencias.model.EmergencyEvent;
 import com.emergencias.model.UserFeedback;
+import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.time.LocalDateTime;
@@ -18,10 +19,32 @@ import java.util.Scanner;
  * - Mantener un historial de operaciones
  */
 public class EmergencyLogger {
-    private static final String HISTORY_FILE = "emergency_history.log";
-    private static final String FEEDBACK_FILE = "user_feedback.log";
+    private static final String HISTORY_FILE = "logs/emergency_history.log";
+    private static final String FEEDBACK_FILE = "logs/user_feedback.log";
+    private static final String LOGS_DIR = "logs";
     private static final DateTimeFormatter TIMESTAMP_FORMAT = 
         DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+    /**
+     * Constructor que asegura que la carpeta de logs existe.
+     */
+    public EmergencyLogger() {
+        createLogsDirectoryIfNotExists();
+    }
+
+    /**
+     * Crea la carpeta logs/ si no existe.
+     */
+    private static void createLogsDirectoryIfNotExists() {
+        File logsDir = new File(LOGS_DIR);
+        if (!logsDir.exists()) {
+            if (logsDir.mkdirs()) {
+                System.out.println("ℹ️  Carpeta 'logs' creada automáticamente.");
+            } else {
+                System.err.println("⚠️  No se pudo crear la carpeta 'logs'.");
+            }
+        }
+    }
 
     /**
      * Registra una emergencia en el historial.

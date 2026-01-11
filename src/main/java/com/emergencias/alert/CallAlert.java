@@ -13,7 +13,7 @@ import java.time.format.DateTimeFormatter;
  */
 public class CallAlert implements IAlert {
     private static final String EMERGENCY_NUMBER = "112";
-    private static final String ALERTS_FILE = "emergency_alerts.log";
+    private static final String ALERTS_FILE = "logs/emergency_alerts.log";
     private static final DateTimeFormatter TIMESTAMP_FORMAT = 
         DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 

@@ -28,9 +28,9 @@ Cada tipo de emergencia tiene su propio nivel de prioridad y protocolo de respue
 
 ### 2. **Registro y Logging**
 Todas las emergencias se registran automáticamente en archivos de log:
-- `emergency_history.log` - Historial de emergencias
-- `emergency_alerts.log` - Alertas enviadas
-- `user_feedback.log` - Feedback de usuarios
+- `logs/emergency_history.log` - Historial de emergencias
+- `logs/emergency_alerts.log` - Alertas enviadas
+- `logs/user_feedback.log` - Feedback de usuarios
 
 ### 3. **Feedback del Usuario**
 Después de reportar una emergencia, el sistema solicita evaluación:
@@ -220,17 +220,17 @@ EmergencyManager.startSystem()
 
 ### 5. **Registros Generados**
 ```
-emergency_history.log:
+logs/emergency_history.log:
 [2026-01-11 14:30:45] ID: a1b2c3d4 | Tipo: Problema médico | Ubicación: Plaza Mayor, Madrid | Gravedad: 8
 
-emergency_alerts.log:
+logs/emergency_alerts.log:
 [2026-01-11 14:30:45] ALERTA DE EMERGENCIA
 Tipo: Problema médico
 Ubicación: Plaza Mayor, Madrid
 Nivel de gravedad: 8/10
 ...
 
-user_feedback.log:
+logs/user_feedback.log:
 [2026-01-11 14:31:15] ID Emergencia: a1b2c3d4 | Puntuación: 5/5 | Comentarios: Excelente servicio
 ```
 
