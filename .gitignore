@@ -1,0 +1,26 @@
+# Archivos de log
+*.log
+emergency_history.log
+user_feedback.log
+
+# Archivos compilados
+*.class
+bin/
+out/
+target/
+
+# IDE
+.vscode/
+.idea/
+*.iml
+*.swp
+*.swo
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+
+# Otros
+.classpath
+.project
+.settings/
