@@ -1,14 +1,17 @@
 package com.emergencias.alert;
 
 import com.emergencias.model.EmergencyEvent;
+import com.emergencias.model.UserData;
+import com.emergencias.services.IAlert;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.time.format.DateTimeFormatter;
 
 /**
  * Clase encargada de enviar notificaciones de emergencia a los servicios correspondientes.
+ * Implementa la interfaz IAlert, permitiendo polimorfismo y fácil extensión.
  */
-public class AlertSender {
+public class AlertSender implements IAlert {
     // Constantes de configuración
     private static final String EMERGENCY_NUMBER = "112";  // Número de emergencias estándar
     private static final String ALERTS_FILE = "emergency_alerts.log";  // Archivo de registro de alertas
@@ -17,13 +20,11 @@ public class AlertSender {
     private static final DateTimeFormatter TIMESTAMP_FORMAT = 
         DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
-    /**
-      Envía una alerta de emergencia a los servicios correspondientes.
-     */
-    public boolean sendAlert(EmergencyEvent event) {
+    @Override
+    public boolean send(EmergencyEvent event) {
         // Validar entrada
         if (event == null) {
-            System.err.println("Error: No se puede enviar una alerta nula");
+            System.err.println("❌ Error: No se puede enviar una alerta nula");
             return false;
         }
 
@@ -40,12 +41,33 @@ public class AlertSender {
             writer.write(alertMessage + "\n");
             writer.flush();
         } catch (IOException e) {
-            System.err.println("Error al guardar la alerta en el archivo: " + e.getMessage());
+            System.err.println("❌ Error al guardar la alerta en el archivo: " + e.getMessage());
             return false;
         }
         
         // 3. Simular envío a servicios de emergencia
         return simulateEmergencyServiceCall(event);
+    }
+
+    @Override
+    public void notifyContacts(UserData userData, EmergencyEvent event) {
+        // Implementación de la interfaz IAlert
+        System.out.println("\nNotificando a contactos de emergencia...");
+        
+        if (userData == null || userData.getEmergencyContact().isEmpty()) {
+            System.out.println("⚠️  No hay contactos de emergencia configurados.");
+            return;
+        }
+        
+        System.out.println("✅ Se ha enviado una notificación a los contactos de emergencia con los siguientes datos:");
+        System.out.println("Tipo de emergencia: " + event.getEmergencyType());
+        System.out.println("Ubicación: " + event.getLocation());
+        System.out.println("Hora del evento: " + event.getTimestamp().format(TIMESTAMP_FORMAT));
+    }
+
+    @Override
+    public String getAlertType() {
+        return "Sistema de Alertas de Emergencia";
     }
 
     /**
@@ -80,38 +102,27 @@ public class AlertSender {
                 System.out.print(".");
                 Thread.sleep(500);
             }
-            System.out.println("\n\n¡Conexión establecida con el servicio de emergencias!");
+            System.out.println("\n\n✅ ¡Conexión establecida con el servicio de emergencias!");
             System.out.println("Operador: ¿Cuál es su emergencia?");
             System.out.println("Sistema: Se ha detectado una emergencia de tipo: " + event.getEmergencyType());
             System.out.println("Ubicación: " + event.getLocation());
-            System.out.println("\n¡Ayuda en camino! Se ha notificado a los servicios de emergencia.");
+            System.out.println("\n✅ ¡Ayuda en camino! Se ha notificado a los servicios de emergencia.");
             
             return true;
             
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            System.err.println("\nError al conectar con el servicio de emergencias: " + e.getMessage());
+            System.err.println("\n❌ Error al conectar con el servicio de emergencias: " + e.getMessage());
             return false;
         }
     }
 
     /**
-     * Notifica a los contactos de emergencia del usuario.
-     *
+     * Método heredado para compatibilidad con código existente.
+     * Usa la nueva implementación de IAlert.
      */
     public void notifyEmergencyContacts(String userData, EmergencyEvent event) {
-        // Implementación básica que podría extenderse para enviar SMS/emails reales
-        System.out.println("\nNotificando a contactos de emergencia...");
-        
-        if (userData == null || userData.isEmpty()) {
-            System.out.println("No hay contactos de emergencia configurados.");
-            return;
-        }
-        
-        System.out.println("Se ha enviado una notificación a los contactos de emergencia con los siguientes datos:");
-        System.out.println("Tipo de emergencia: " + event.getEmergencyType());
-        System.out.println("Ubicación: " + event.getLocation());
-        System.out.println("Hora del evento: " + event.getTimestamp().format(TIMESTAMP_FORMAT));
-
+        // Este método se mantiene para compatibilidad hacia atrás
+        notifyContacts(null, event);
     }
 }

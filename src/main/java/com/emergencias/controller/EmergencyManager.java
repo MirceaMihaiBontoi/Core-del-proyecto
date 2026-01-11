@@ -5,6 +5,7 @@ import com.emergencias.alert.EmergencyLogger;
 import com.emergencias.detector.EmergencyDetector;
 import com.emergencias.model.EmergencyEvent;
 import com.emergencias.model.UserData;
+import com.emergencias.services.IAlert;
 import java.util.Scanner;
 
 /**
@@ -13,7 +14,7 @@ import java.util.Scanner;
 public class EmergencyManager {
     // Componentes del sistema
     private final EmergencyDetector detector;  // Para detectar emergencias
-    private final AlertSender alertSender;     // Para enviar notificaciones
+    private final IAlert alertSender;          // Interfaz para enviar notificaciones (Polimorfismo)
     private final UserData userData;           // Datos del usuario actual
     private final EmergencyLogger logger;      // Para registrar emergencias y feedback
     private final Scanner scanner;             // Scanner compartido de la aplicación
@@ -25,7 +26,7 @@ public class EmergencyManager {
         this.userData = userData;  // Almacenar datos del usuario
         this.scanner = scanner;    // Almacenar el scanner compartido
         this.detector = new EmergencyDetector(userData, scanner);  // Inicializar detector
-        this.alertSender = new AlertSender();  // Inicializar sistema de alertas
+        this.alertSender = new AlertSender();  // Inicializar sistema de alertas (polimorfismo con IAlert)
         this.logger = new EmergencyLogger();  // Inicializar sistema de logging
     }
 
@@ -57,11 +58,11 @@ public class EmergencyManager {
                             System.out.println("\n✅ Emergencia registrada con ID: " + emergencyId);
                             
                             // Paso 3: Enviar alerta a servicios de emergencia
-                            boolean alertSent = alertSender.sendAlert(event);
+                            boolean alertSent = alertSender.send(event);
                             
                             if (alertSent) {
                                 // Paso 4: Notificar a los contactos de emergencia
-                                alertSender.notifyEmergencyContacts(userData.toString(), event);
+                                alertSender.notifyContacts(userData, event);
                             
                                 // Confirmación al usuario
                                 System.out.println("\n✅ ¡Emergencia reportada con éxito!");
