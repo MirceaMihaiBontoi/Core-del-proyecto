@@ -75,6 +75,7 @@ public class EmergencyEvent {
 
     public LocalDateTime getTimestamp() {
         return timestamp;
+        
     }
 
     public String getUserData() {

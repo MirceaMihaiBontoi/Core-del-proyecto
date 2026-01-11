@@ -83,23 +83,50 @@ public class UserData {
     public void collectUserData(Scanner scanner) {
         System.out.println("\n=== REGISTRO DE DATOS DE USUARIO ===");
         
-        // Obtener nombre completo
-        System.out.print("Ingrese su nombre completo: ");
-        this.fullName = scanner.nextLine().trim();
+        // Obtener nombre completo - Validar que no esté vacío
+        while (true) {
+            System.out.print("Ingrese su nombre completo: ");
+            String inputName = scanner.nextLine().trim();
+            if (!inputName.isEmpty()) {
+                this.fullName = inputName;
+                break;
+            } else {
+                System.out.println("⚠️  Error: El nombre no puede estar vacío. Intente nuevamente.");
+            }
+        }
         
-        // Obtener número de teléfono
-        System.out.print("Ingrese su número de teléfono: ");
-        this.phoneNumber = scanner.nextLine().trim();
+        // Obtener número de teléfono - Validar que no esté vacío
+        while (true) {
+            System.out.print("Ingrese su número de teléfono: ");
+            String inputPhone = scanner.nextLine().trim();
+            if (!inputPhone.isEmpty()) {
+                this.phoneNumber = inputPhone;
+                break;
+            } else {
+                System.out.println("⚠️  Error: El teléfono no puede estar vacío. Intente nuevamente.");
+            }
+        }
         
         // Obtener información médica (opcional)
         System.out.print("Ingrese información médica relevante (alergias, condiciones, etc.) [opcional]: ");
         this.medicalInfo = scanner.nextLine().trim();
+        if (this.medicalInfo.isEmpty()) {
+            this.medicalInfo = "No especificada";
+        }
         
-        // Obtener contacto de emergencia
-        System.out.print("Ingrese nombre y teléfono de contacto de emergencia (ejemplo: Juan Pérez 123456789): ");
-        this.emergencyContact = scanner.nextLine().trim();
+        // Obtener contacto de emergencia - Validar que no esté vacío
+        while (true) {
+            System.out.print("Ingrese nombre y teléfono de contacto de emergencia (ejemplo: Juan Pérez 123456789): ");
+            String inputContact = scanner.nextLine().trim();
+            if (!inputContact.isEmpty()) {
+                this.emergencyContact = inputContact;
+                break;
+            } else {
+                System.out.println("⚠️  Error: El contacto de emergencia no puede estar vacío. Intente nuevamente.");
+            }
+        }
         
-        System.out.println("\n¡Gracias! Sus datos han sido registrados correctamente.");
+        System.out.println("\n✅ ¡Gracias! Sus datos han sido registrados correctamente.");
         System.out.println("==========================================\n");
     }
 

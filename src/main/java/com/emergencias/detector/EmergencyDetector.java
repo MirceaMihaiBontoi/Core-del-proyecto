@@ -59,31 +59,47 @@ public class EmergencyDetector {
     }
 
     private String getEmergencyType() {
-        System.out.println("\nTipos de emergencia disponibles:");
-        System.out.println("1. Accidente de tráfico");
-        System.out.println("2. Problema médico");
-        System.out.println("3. Incendio");
-        System.out.println("4. Agresión");
-        System.out.println("5. Otro");
-        
-        System.out.print("Seleccione el tipo de emergencia (1-5): ");
-        String input = scanner.nextLine();
-        
-        return switch (input) {
-            case "1" -> "Accidente de tráfico";
-            case "2" -> "Problema médico";
-            case "3" -> "Incendio";
-            case "4" -> "Agresión";
-            default -> "Otro";
-        };
+        while (true) {
+            System.out.println("\nTipos de emergencia disponibles:");
+            System.out.println("1. Accidente de tráfico");
+            System.out.println("2. Problema médico");
+            System.out.println("3. Incendio");
+            System.out.println("4. Agresión");
+            System.out.println("5. Otro");
+            
+            System.out.print("Seleccione el tipo de emergencia (1-5): ");
+            String input = scanner.nextLine().trim();
+            
+            // Validar que la entrada sea válida
+            if (input.isEmpty()) {
+                System.out.println("⚠️  Error: Debe seleccionar un tipo de emergencia. Intente nuevamente.");
+                continue;
+            }
+            
+            switch (input) {
+                case "1":
+                    return "Accidente de tráfico";
+                case "2":
+                    return "Problema médico";
+                case "3":
+                    return "Incendio";
+                case "4":
+                    return "Agresión";
+                case "5":
+                    return "Otro";
+                default:
+                    System.out.println("⚠️  Opción no válida. Debe ingresar un número entre 1 y 5. Intente nuevamente.");
+            }
+        }
     }
 
     private String getLocation() {
         System.out.print("\nUbicación actual (o presione Enter para usar ubicación por GPS): ");
-        String location = scanner.nextLine();
+        String location = scanner.nextLine().trim();
         
-        if (location.trim().isEmpty()) {
+        if (location.isEmpty()) {
             // Simular obtención de ubicación por GPS
+            System.out.println("ℹ️  Usando ubicación por GPS...");
             return "40.4168° N, 3.7038° O (Plaza Mayor, Madrid)";
         }
         

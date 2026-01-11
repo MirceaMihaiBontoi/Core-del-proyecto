@@ -39,56 +39,70 @@ public class EmergencyManager {
         System.out.println("Sistema de Gestión de Emergencias - Iniciado");
         System.out.println("=========================================\n");
         
-        // Obtener datos del usuario al iniciar
-        userData.collectUserData(scanner);
-        
-        // Bucle principal
         try {
-            while (true) {
-            // Paso 1: Detectar emergencia a través del detector
-            EmergencyEvent event = detector.detectEmergency();
+            // Obtener datos del usuario al iniciar
+            userData.collectUserData(scanner);
             
-            // Si se detectó una emergencia válida
-            if (event != null) {
-                // Paso 2: Registrar la emergencia en el log
-                String emergencyId = logger.logEmergency(event);
-                System.out.println("\nEmergencia registrada con ID: " + emergencyId);
-                
-                // Paso 3: Enviar alerta a servicios de emergencia
-                boolean alertSent = alertSender.sendAlert(event);
-                
-                if (alertSent) {
-                    // Paso 4: Notificar a los contactos de emergencia
-                    alertSender.notifyEmergencyContacts(userData.toString(), event);
-                
-                    // Confirmación al usuario
-                    System.out.println("\n¡Emergencia reportada con éxito!");
-                    System.out.println("Se ha creado un registro de la emergencia en el sistema.");
+            // Bucle principal
+            while (true) {
+                try {
+                    // Paso 1: Detectar emergencia a través del detector
+                    EmergencyEvent event = detector.detectEmergency();
                     
-                    // Paso 5: Solicitar feedback del usuario
-                    logger.collectAndLogFeedback(emergencyId, scanner);
-                    System.out.println("\nGracias por tu feedback. Nos ayuda a mejorar el sistema.");
-                } else {
-                    // Manejo de error en el envío de alerta
-                    System.out.println("\nNo se pudo enviar la alerta. Por favor, intente nuevamente o llame al 112 manualmente.");
+                    // Si se detectó una emergencia válida
+                    if (event != null) {
+                        try {
+                            // Paso 2: Registrar la emergencia en el log
+                            String emergencyId = logger.logEmergency(event);
+                            System.out.println("\n✅ Emergencia registrada con ID: " + emergencyId);
+                            
+                            // Paso 3: Enviar alerta a servicios de emergencia
+                            boolean alertSent = alertSender.sendAlert(event);
+                            
+                            if (alertSent) {
+                                // Paso 4: Notificar a los contactos de emergencia
+                                alertSender.notifyEmergencyContacts(userData.toString(), event);
+                            
+                                // Confirmación al usuario
+                                System.out.println("\n✅ ¡Emergencia reportada con éxito!");
+                                System.out.println("Se ha creado un registro de la emergencia en el sistema.");
+                                
+                                // Paso 5: Solicitar feedback del usuario
+                                try {
+                                    logger.collectAndLogFeedback(emergencyId, scanner);
+                                    System.out.println("\n✅ Gracias por tu feedback. Nos ayuda a mejorar el sistema.");
+                                } catch (Exception e) {
+                                    System.err.println("⚠️  Error al recopilar feedback: " + e.getMessage());
+                                }
+                            } else {
+                                // Manejo de error en el envío de alerta
+                                System.out.println("\n❌ No se pudo enviar la alerta. Por favor, intente nuevamente o llame al 112 manualmente.");
+                            }
+                        } catch (Exception e) {
+                            System.err.println("\n❌ Error al procesar la emergencia: " + e.getMessage());
+                        }
+                    }
+                    
+                    // Preguntar al usuario si desea realizar otra acción
+                    System.out.print("\n¿Desea realizar otra acción? (S/N): ");
+                    String response = scanner.nextLine().trim();
+                    
+                    // Salir del bucle si el usuario no desea continuar
+                    if (!response.equalsIgnoreCase("S")) {
+                        System.out.println("\n✅ Saliendo del sistema de emergencias. ¡Hasta pronto!");
+                        break;  // Terminar el bucle principal
+                    }
+                    
+                    // Separador visual entre operaciones
+                    System.out.println("\n" + "=".repeat(80) + "\n");
+                    
+                } catch (Exception e) {
+                    System.err.println("❌ Error en el ciclo principal: " + e.getMessage());
+                    System.out.println("Intente nuevamente...\n");
                 }
             }
-            
-            // Preguntar al usuario si desea realizar otra acción
-            System.out.print("\n¿Desea realizar otra acción? (S/N): ");
-            String response = scanner.nextLine().trim();
-            
-            // Salir del bucle si el usuario no desea continuar
-            if (!response.equalsIgnoreCase("S")) {
-                System.out.println("\nSaliendo del sistema de emergencias. ¡Hasta pronto!");
-                break;  // Terminar el bucle principal
-            }
-            
-                // Separador visual entre operaciones
-                System.out.println("\n" + "=".repeat(80) + "\n");
-            }
-        } finally {
-            // El scanner se cierra en Main.java
+        } catch (Exception e) {
+            System.err.println("\n❌ Error crítico en el sistema: " + e.getMessage());
         }
     }
 }

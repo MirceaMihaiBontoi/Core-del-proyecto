@@ -30,6 +30,12 @@ public class EmergencyLogger {
      * @return ID único de la emergencia
      */
     public String logEmergency(EmergencyEvent event) {
+        // Validar entrada
+        if (event == null) {
+            System.err.println("❌ Error: No se puede registrar una emergencia nula");
+            throw new IllegalArgumentException("El evento de emergencia no puede ser nulo");
+        }
+        
         String emergencyId = UUID.randomUUID().toString();
         String logEntry = String.format(
             "[%s] ID: %s | Tipo: %s | Ubicación: %s | Gravedad: %s%n",
@@ -43,7 +49,8 @@ public class EmergencyLogger {
         try (FileWriter writer = new FileWriter(HISTORY_FILE, true)) {
             writer.write(logEntry);
         } catch (IOException e) {
-            System.err.println("Error al registrar emergencia: " + e.getMessage());
+            System.err.println("❌ Error al registrar emergencia: " + e.getMessage());
+            throw new RuntimeException("Error al escribir en el archivo de historial", e);
         }
 
         return emergencyId;
@@ -57,18 +64,46 @@ public class EmergencyLogger {
      * @return UserFeedback con la evaluación del usuario
      */
     public UserFeedback collectAndLogFeedback(String emergencyId, Scanner scanner) {
-        System.out.println("\n--- Solicitud de Feedback ---");
-        System.out.println("¿Cómo fue tu experiencia? (1-5, donde 5 es excelente): ");
-        int rating = scanner.nextInt();
-        scanner.nextLine(); // Limpiar buffer
+        // Validar entrada
+        if (emergencyId == null || emergencyId.isEmpty()) {
+            throw new IllegalArgumentException("El ID de emergencia no puede ser nulo o vacío");
+        }
+        
+        try {
+            System.out.println("\n--- Solicitud de Feedback ---");
+            System.out.println("¿Cómo fue tu experiencia? (1-5, donde 5 es excelente): ");
+            
+            int rating = -1;
+            while (rating < 1 || rating > 5) {
+                try {
+                    rating = scanner.nextInt();
+                    if (rating < 1 || rating > 5) {
+                        System.out.println("⚠️  Por favor, ingrese un valor entre 1 y 5.");
+                    }
+                } catch (Exception e) {
+                    System.err.println("⚠️  Entrada inválida. Intente nuevamente.");
+                    scanner.nextLine(); // Limpiar buffer
+                    rating = -1;
+                }
+            }
+            
+            scanner.nextLine(); // Limpiar buffer
 
-        System.out.println("¿Tienes algún comentario adicional?");
-        String comments = scanner.nextLine();
+            System.out.println("¿Tienes algún comentario adicional?");
+            String comments = scanner.nextLine().trim();
+            if (comments.isEmpty()) {
+                comments = "Sin comentarios";
+            }
 
-        UserFeedback feedback = new UserFeedback(emergencyId, rating, comments);
-        logFeedback(feedback);
+            UserFeedback feedback = new UserFeedback(emergencyId, rating, comments);
+            logFeedback(feedback);
 
-        return feedback;
+            return feedback;
+            
+        } catch (Exception e) {
+            System.err.println("❌ Error al recopilar feedback: " + e.getMessage());
+            throw new RuntimeException("Error al procesar el feedback del usuario", e);
+        }
     }
 
     /**
@@ -77,6 +112,12 @@ public class EmergencyLogger {
      * @param feedback Feedback del usuario a registrar
      */
     private void logFeedback(UserFeedback feedback) {
+        // Validar entrada
+        if (feedback == null) {
+            System.err.println("❌ Error: No se puede registrar un feedback nulo");
+            return;
+        }
+        
         String logEntry = String.format(
             "[%s] ID Emergencia: %s | Puntuación: %d/5 | Comentarios: %s%n",
             feedback.getFeedbackTime().format(TIMESTAMP_FORMAT),
@@ -88,7 +129,7 @@ public class EmergencyLogger {
         try (FileWriter writer = new FileWriter(FEEDBACK_FILE, true)) {
             writer.write(logEntry);
         } catch (IOException e) {
-            System.err.println("Error al registrar feedback: " + e.getMessage());
+            System.err.println("❌ Error al registrar feedback: " + e.getMessage());
         }
     }
 }

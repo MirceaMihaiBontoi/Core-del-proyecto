@@ -31,9 +31,23 @@ public class Main {
             // 3. Iniciar el sistema de gestión de emergencias
             //    Este método contiene el bucle principal de la aplicación
             emergencyManager.startSystem();
+            
+        } catch (Exception e) {
+            // Captura global de excepciones inesperadas
+            System.err.println("\n=== ERROR CRÍTICO ===");
+            System.err.println("Se ha producido un error inesperado en la aplicación: " + e.getMessage());
+            System.err.println("Por favor, contacte con soporte técnico si el problema persiste.");
+            e.printStackTrace();
+            
         } finally {
             // Cerrar el scanner al salir
-            scanner.close();
+            try {
+                if (scanner != null) {
+                    scanner.close();
+                }
+            } catch (Exception e) {
+                System.err.println("Error al cerrar el scanner: " + e.getMessage());
+            }
         }
     }
 }
