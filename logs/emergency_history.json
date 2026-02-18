@@ -1,0 +1,8 @@
+[ {
+  "id" : "07f916f4-48fd-4e5b-8ac7-0cc888ef693a",
+  "emergencyType" : "Incendio",
+  "location" : "Elche",
+  "severityLevel" : 6,
+  "timestamp" : "2026-02-18T19:52:27",
+  "userData" : "Nombre: Juan García\nTeléfono: 123456789\nContacto de emergencia: Ana López\nInformación médica: nada"
+} ]

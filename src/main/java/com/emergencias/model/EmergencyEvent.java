@@ -1,5 +1,6 @@
 package com.emergencias.model;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import java.time.LocalDateTime;
 
 /**
@@ -7,15 +8,11 @@ import java.time.LocalDateTime;
  * 
  * Esta clase encapsula toda la información relevante de una emergencia reportada,
  * incluyendo metadatos como la marca de tiempo y la gravedad del incidente.
- * 
- * Características principales:
- * - Almacena información detallada sobre el tipo de emergencia
- * - Registra la ubicación exacta del incidente
- * - Incluye un nivel de gravedad cuantificable
- * - Genera automáticamente una marca de tiempo al crear el evento
- * - Proporciona una representación en cadena formateada para su visualización
  */
 public class EmergencyEvent {
+    // ID único para la emergencia, asignado por el logger
+    private String id;
+    
     // Tipo de emergencia (ej: "Accidente de tráfico", "Problema médico", etc.)
     private String emergencyType;
     
@@ -26,6 +23,8 @@ public class EmergencyEvent {
     private int severityLevel;
     
     // Marca de tiempo del momento en que se creó el evento
+    // La anotación JsonFormat asegura que la fecha se guarde en un formato estándar
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private final LocalDateTime timestamp;
     
     // Información del usuario relacionada con la emergencia
@@ -33,12 +32,6 @@ public class EmergencyEvent {
 
     /**
      * Constructor principal para crear un nuevo evento de emergencia.
-     * 
-     * @param emergencyType Tipo de emergencia (no puede ser nulo o vacío)
-     * @param location Ubicación de la emergencia (no puede ser nula o vacía)
-     * @param severityLevel Nivel de gravedad (1-10)
-     * @param userData Información del usuario relacionada con la emergencia
-     * @throws IllegalArgumentException si los parámetros no son válidos
      */
     public EmergencyEvent(String emergencyType, String location, int severityLevel, String userData) {
         this.emergencyType = emergencyType;
@@ -49,6 +42,14 @@ public class EmergencyEvent {
     }
 
     // Getters y Setters
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
+    }
+
     public String getEmergencyType() {
         return emergencyType;
     }
@@ -75,7 +76,6 @@ public class EmergencyEvent {
 
     public LocalDateTime getTimestamp() {
         return timestamp;
-        
     }
 
     public String getUserData() {
@@ -88,9 +88,6 @@ public class EmergencyEvent {
 
     /**
      * Devuelve una representación en cadena formateada del evento de emergencia.
-     * 
-     * @return Cadena que contiene todos los detalles del evento formateados
-     *         para su visualización en consola o registro.
      */
     @Override
     public String toString() {
