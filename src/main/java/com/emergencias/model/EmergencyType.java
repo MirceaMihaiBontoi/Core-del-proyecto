@@ -1,23 +1,38 @@
 package com.emergencias.model;
 
 /**
- * Clase abstracta que define el contrato para diferentes tipos de emergencias.
- * Implementa herencia y permite que cada tipo de emergencia tenga su propia lógica.
- * 
- * Ejemplos de subclases:
- * - MedicalEmergency: Emergencias médicas
- * - TrafficAccidentEmergency: Accidentes de tráfico
- * - FireEmergency: Incendios
- * - SecurityEmergency: Problemas de seguridad
+ * <h1>Plantilla para Tipos de Emergencia (Clase Abstracta)</h1>
+ *
+ * <p>
+ * Esta clase abstracta define la estructura y el comportamiento base para
+ * cualquier tipo de emergencia en el sistema. Utiliza la herencia para
+ * establecer un contrato común que todas las emergencias concretas deben seguir.
+ * </p>
+ *
+ * <p>
+ * El objetivo es poder tratar diferentes tipos de emergencias (médica, incendio, etc.)
+ * de forma polimórfica, a la vez que cada una puede definir su propio protocolo
+ * de respuesta y los servicios que requiere.
+ * </p>
+ *
+ * @author  MirceaMihaiBontoi (Documentado por Davgaltol)
+ * @version 1.1
+ * @since 2023-10-27
  */
 public abstract class EmergencyType {
+    // --- ATRIBUTOS COMUNES ---
     protected String name;
-    protected int priority;  // 1-10, donde 10 es máxima prioridad
+    protected int priority; // Escala de 1 a 10
     protected String description;
     protected boolean requiresMedicalAssistance;
 
     /**
-     * Constructor de la clase abstracta.
+     * Constructor para inicializar los atributos comunes de cualquier tipo de emergencia.
+     *
+     * @param name                    El nombre del tipo de emergencia (ej. "Incendio").
+     * @param priority                La prioridad numérica (1-10).
+     * @param description             Una breve descripción de la emergencia.
+     * @param requiresMedicalAssistance {@code true} si este tipo de emergencia necesita asistencia médica.
      */
     public EmergencyType(String name, int priority, String description, boolean requiresMedicalAssistance) {
         this.name = name;
@@ -26,52 +41,58 @@ public abstract class EmergencyType {
         this.requiresMedicalAssistance = requiresMedicalAssistance;
     }
 
-    /**
-     * Obtiene la prioridad de la emergencia.
-     * Método concreto accesible desde subclases.
-     */
+    // --- MÉTODOS CONCRETOS (Comportamiento común) ---
+
     public int getPriority() {
         return priority;
     }
 
-    /**
-     * Obtiene la descripción de la emergencia.
-     */
     public String getDescription() {
         return description;
     }
 
-    /**
-     * Obtiene el nombre del tipo de emergencia.
-     */
     public String getName() {
         return name;
     }
 
-    /**
-     * Verifica si requiere asistencia médica.
-     */
     public boolean requiresMedicalAssistance() {
         return requiresMedicalAssistance;
     }
 
+    // --- MÉTODOS ABSTRACTOS (Comportamiento específico de cada subclase) ---
+
     /**
-     * Método abstracto que cada subclase debe implementar.
-     * Proporciona el protocolo específico de respuesta para este tipo de emergencia.
+     * Devuelve el protocolo de respuesta específico para este tipo de emergencia.
+     * <p>
+     * Cada subclase (como {@code MedicalEmergency}) debe implementar este método
+     * para definir los pasos a seguir.
+     * </p>
+     *
+     * @return Una cadena de texto con el protocolo de actuación.
      */
     public abstract String getResponseProtocol();
 
     /**
-     * Método abstracto para obtener los servicios requeridos.
+     * Devuelve una lista de los servicios de emergencia requeridos.
+     * <p>
+     * Cada subclase debe especificar qué unidades o personal son necesarios
+     * (ej. "Ambulancia", "Bomberos").
+     * </p>
+     *
+     * @return Un array de cadenas con los nombres de los servicios.
      */
     public abstract String[] getRequiredServices();
 
+    /**
+     * Devuelve una representación en cadena del tipo de emergencia.
+     *
+     * @return Una cadena formateada con los detalles principales.
+     */
     @Override
     public String toString() {
         return String.format(
-            "Emergencia: %s\nPrioridad: %d/10\nDescripción: %s\nAsistencia médica: %s",
-            name, priority, description, 
-            requiresMedicalAssistance ? "Sí" : "No"
+            "Tipo de Emergencia: %s (Prioridad: %d/10)",
+            name, priority
         );
     }
 }

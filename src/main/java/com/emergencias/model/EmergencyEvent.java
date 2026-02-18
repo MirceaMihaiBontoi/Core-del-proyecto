@@ -1,19 +1,37 @@
 package com.emergencias.model;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter; // Importar la clase necesaria
 
 /**
- * Clase que representa un evento de emergencia en el sistema.
+ * <h1>Entidad de Evento de Emergencia</h1>
+ *
+ * <p>
+ * Esta clase (POJO) representa un único evento de emergencia reportado en el sistema.
+ * Encapsula todos los detalles relevantes del incidente, como el tipo, la ubicación,
+ * la gravedad y la información del usuario asociado.
+ * </p>
+ *
+ * <p>
+ * Está diseñada para ser serializada a JSON por la librería Jackson.
+ * </p>
+ *
+ * @author MirceaMihaiBontoi (Documentado por Davgaltol)
+ * @version 1.2
+ * @since 2023-10-27
  */
 public class EmergencyEvent {
+    // --- ATRIBUTOS ---
     private String id;
     private String emergencyType;
     private String location;
     private int severityLevel;
     
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss")
-    private LocalDateTime timestamp;
+    @JsonProperty
+    private final LocalDateTime timestamp;
     
     private String userData;
 
@@ -21,8 +39,6 @@ public class EmergencyEvent {
      * Constructor sin argumentos, requerido por Jackson para la deserialización.
      */
     public EmergencyEvent() {
-        // El campo 'timestamp' es final, pero Jackson puede manejarlo.
-        // Lo inicializamos a 'now()' como valor por defecto seguro.
         this.timestamp = LocalDateTime.now();
     }
 
@@ -37,58 +53,33 @@ public class EmergencyEvent {
         this.timestamp = LocalDateTime.now();
     }
 
-    // Getters y Setters
-    public String getId() {
-        return id;
-    }
+    // --- GETTERS Y SETTERS ---
+    public String getId() { return id; }
+    public void setId(String id) { this.id = id; }
+    public String getEmergencyType() { return emergencyType; }
+    public void setEmergencyType(String emergencyType) { this.emergencyType = emergencyType; }
+    public String getLocation() { return location; }
+    public void setLocation(String location) { this.location = location; }
+    public int getSeverityLevel() { return severityLevel; }
+    public void setSeverityLevel(int severityLevel) { this.severityLevel = severityLevel; }
+    public LocalDateTime getTimestamp() { return timestamp; }
+    public String getUserData() { return userData; }
+    public void setUserData(String userData) { this.userData = userData; }
 
-    public void setId(String id) {
-        this.id = id;
-    }
-
-    public String getEmergencyType() {
-        return emergencyType;
-    }
-
-    public void setEmergencyType(String emergencyType) {
-        this.emergencyType = emergencyType;
-    }
-
-    public String getLocation() {
-        return location;
-    }
-
-    public void setLocation(String location) {
-        this.location = location;
-    }
-
-    public int getSeverityLevel() {
-        return severityLevel;
-    }
-
-    public void setSeverityLevel(int severityLevel) {
-        this.severityLevel = severityLevel;
-    }
-
-    public LocalDateTime getTimestamp() {
-        return timestamp;
-    }
-
-    // No hay setter para timestamp porque es 'final'
-
-    public String getUserData() {
-        return userData;
-    }
-
-    public void setUserData(String userData) {
-        this.userData = userData;
-    }
-
+    /**
+     * Devuelve una representación en cadena del evento, ideal para logs rápidos o depuración.
+     *
+     * @return Una cadena formateada con los detalles clave del evento.
+     */
     @Override
     public String toString() {
+        // CORRECCIÓN: Usar DateTimeFormatter para formatear la fecha correctamente.
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
         return String.format(
-            "[%s] Emergencia: %s\nUbicación: %s\nGravedad: %d\nDatos del usuario: %s",
-            timestamp, emergencyType, location, severityLevel, userData
+            "[%s] Emergencia: %s, Ubicación: %s, Gravedad: %d, Usuario: %s",
+            timestamp.format(formatter), 
+            emergencyType, location, severityLevel, 
+            userData.split("\n")[0]
         );
     }
 }

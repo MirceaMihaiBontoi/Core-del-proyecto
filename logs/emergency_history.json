@@ -54,4 +54,11 @@
   "severityLevel" : 2,
   "timestamp" : "2026-02-18T20:33:35",
   "userData" : "Nombre: a\nTeléfono: 123123123\nContacto de emergencia: s\nInformación médica: No especificada"
+}, {
+  "id" : "e1ab46b0-b250-4ec3-bd7a-683f63f06fae",
+  "emergencyType" : "Agresión",
+  "location" : "murcia",
+  "severityLevel" : 3,
+  "timestamp" : "2026-02-18T20:52:20",
+  "userData" : "Nombre: testeo test\nTeléfono: 123456543\nContacto de emergencia: test 2323\nInformación médica: No especificada"
 } ]
