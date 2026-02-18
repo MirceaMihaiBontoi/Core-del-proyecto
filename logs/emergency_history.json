@@ -5,4 +5,18 @@
   "severityLevel" : 6,
   "timestamp" : "2026-02-18T19:52:27",
   "userData" : "Nombre: Juan García\nTeléfono: 123456789\nContacto de emergencia: Ana López\nInformación médica: nada"
+}, {
+  "id" : "5ac194e7-ad6d-4ab3-a826-1853c86baca8",
+  "emergencyType" : "Incendio",
+  "location" : "Murcia",
+  "severityLevel" : 4,
+  "timestamp" : "2026-02-18T19:57:38",
+  "userData" : "Nombre: Ana Mena\nTeléfono: 123123123\nContacto de emergencia: Becky G 654654654\nInformación médica: celíaca"
+}, {
+  "id" : "0de6ff53-c12e-4173-9be8-1c405f213c48",
+  "emergencyType" : "Agresión",
+  "location" : "Murcia",
+  "severityLevel" : 1,
+  "timestamp" : "2026-02-18T19:58:11",
+  "userData" : "Nombre: Ana Mena\nTeléfono: 123123123\nContacto de emergencia: Becky G 654654654\nInformación médica: celíaca"
 } ]
