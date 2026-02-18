@@ -1,0 +1,64 @@
+[ {
+  "id" : "07f916f4-48fd-4e5b-8ac7-0cc888ef693a",
+  "emergencyType" : "Incendio",
+  "location" : "Elche",
+  "severityLevel" : 6,
+  "timestamp" : "2026-02-18T19:52:27",
+  "userData" : "Nombre: Juan García\nTeléfono: 123456789\nContacto de emergencia: Ana López\nInformación médica: nada"
+}, {
+  "id" : "5ac194e7-ad6d-4ab3-a826-1853c86baca8",
+  "emergencyType" : "Incendio",
+  "location" : "Murcia",
+  "severityLevel" : 4,
+  "timestamp" : "2026-02-18T19:57:38",
+  "userData" : "Nombre: Ana Mena\nTeléfono: 123123123\nContacto de emergencia: Becky G 654654654\nInformación médica: celíaca"
+}, {
+  "id" : "0de6ff53-c12e-4173-9be8-1c405f213c48",
+  "emergencyType" : "Agresión",
+  "location" : "Murcia",
+  "severityLevel" : 1,
+  "timestamp" : "2026-02-18T19:58:11",
+  "userData" : "Nombre: Ana Mena\nTeléfono: 123123123\nContacto de emergencia: Becky G 654654654\nInformación médica: celíaca"
+}, {
+  "id" : "7a0f3e26-1547-4409-9c95-89d953469128",
+  "emergencyType" : "Otro",
+  "location" : "alicante",
+  "severityLevel" : 10,
+  "timestamp" : "2026-02-18T20:06:46",
+  "userData" : "Nombre: Dav Gal\nTeléfono: 08972373\nContacto de emergencia: alicia flo\nInformación médica: dislexia"
+}, {
+  "id" : "370a8db0-277c-4543-8679-3b73eda6f919",
+  "emergencyType" : "Incendio",
+  "location" : "murcia",
+  "severityLevel" : 2,
+  "timestamp" : "2026-02-18T20:28:37",
+  "userData" : "Nombre: Juan Pardo\nTeléfono: 12343211223\nContacto de emergencia: María Luz 3335\nInformación médica: No especificada"
+}, {
+  "id" : "1f3dc138-78af-4294-b1dc-3455400c985c",
+  "emergencyType" : "Incendio",
+  "location" : "Elche",
+  "severityLevel" : 6,
+  "timestamp" : "2026-02-18T20:30:08",
+  "userData" : "Nombre: Luz Casal\nTeléfono: 123456654\nContacto de emergencia: paco 12\nInformación médica: No especificada"
+}, {
+  "id" : "e649c3ff-b786-4d05-b6e8-bb213a05816c",
+  "emergencyType" : "Incendio",
+  "location" : "murcia",
+  "severityLevel" : 4,
+  "timestamp" : "2026-02-18T20:31:47",
+  "userData" : "Nombre: Ali Flo\nTeléfono: 987987987\nContacto de emergencia: DA T\nInformación médica: No especificada"
+}, {
+  "id" : "101689c7-17d7-4dc4-869a-187604f146f6",
+  "emergencyType" : "Incendio",
+  "location" : "murcia",
+  "severityLevel" : 2,
+  "timestamp" : "2026-02-18T20:33:35",
+  "userData" : "Nombre: a\nTeléfono: 123123123\nContacto de emergencia: s\nInformación médica: No especificada"
+}, {
+  "id" : "e1ab46b0-b250-4ec3-bd7a-683f63f06fae",
+  "emergencyType" : "Agresión",
+  "location" : "murcia",
+  "severityLevel" : 3,
+  "timestamp" : "2026-02-18T20:52:20",
+  "userData" : "Nombre: testeo test\nTeléfono: 123456543\nContacto de emergencia: test 2323\nInformación médica: No especificada"
+} ]

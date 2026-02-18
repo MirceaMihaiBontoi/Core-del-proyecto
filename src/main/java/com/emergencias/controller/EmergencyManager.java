@@ -1,135 +1,180 @@
 package com.emergencias.controller;
 
-import com.emergencias.alert.AlertSender;
 import com.emergencias.alert.EmergencyLogger;
 import com.emergencias.detector.EmergencyDetector;
 import com.emergencias.model.EmergencyEvent;
 import com.emergencias.model.UserData;
 import com.emergencias.model.CentroSalud;
 import com.emergencias.model.CentroSaludUtils;
-import java.util.List;
 import com.emergencias.services.IAlert;
+import java.util.List;
 import java.util.Scanner;
 
 /**
- Clase controladora principal que gestiona el flujo de detección y notificación de emergencias.
+ * <h1>Controlador Principal del Sistema de Emergencias</h1>
+ *
+ * <p>
+ * Esta clase actúa como el "cerebro" de la aplicación. Orquesta el flujo
+ * completo de una operación de emergencia, desde la detección hasta la
+ * notificación y el registro.
+ * </p>
+ *
+ * <p>
+ * Sigue el principio de Inyección de Dependencias: no crea sus propios
+ * componentes (detector, logger, etc.), sino que los recibe en su constructor.
+ * Esto lo hace flexible, modular y fácil de probar.
+ * </p>
+ *
+ * @author MirceaMihaiBontoi (Documentado por Davgaltol)
+ * @version 1.1
+ * @since 2023-10-27
  */
 public class EmergencyManager {
-    // Componentes del sistema
-    private final EmergencyDetector detector;  // Para detectar emergencias
-    private final IAlert alertSender;          // Interfaz para enviar notificaciones (Polimorfismo)
-    private final UserData userData;           // Datos del usuario actual
-    private final EmergencyLogger logger;      // Para registrar emergencias y feedback
-    private final Scanner scanner;             // Scanner compartido de la aplicación
+    // --- DEPENDENCIAS ---
+    // Estos son los componentes que el EmergencyManager necesita para funcionar.
+    // Son 'final' porque se asignan una vez en el constructor y no deben cambiar.
+    private final EmergencyDetector detector;
+    private final IAlert alertSender;
+    private final UserData userData;
+    private final EmergencyLogger logger;
+    private final Scanner scanner;
 
     /**
-     Constructor que inicializa el gestor de emergencias con los datos del usuario.
+     * Constructor que recibe e inicializa todas las dependencias del gestor.
+     *
+     * @param userData      El objeto que contiene los datos del usuario.
+     * @param scanner       La instancia compartida de Scanner para la entrada del usuario.
+     * @param detector      El componente encargado de detectar y definir la emergencia.
+     * @param alertSender   El componente para enviar alertas a los servicios y contactos.
+     * @param logger        El componente para registrar los eventos y el feedback.
      */
-    public EmergencyManager(UserData userData, Scanner scanner) {
-        this.userData = userData;  // Almacenar datos del usuario
-        this.scanner = scanner;    // Almacenar el scanner compartido
-        this.detector = new EmergencyDetector(userData, scanner);  // Inicializar detector
-        this.alertSender = new AlertSender();  // Inicializar sistema de alertas (polimorfismo con IAlert)
-        this.logger = new EmergencyLogger();  // Inicializar sistema de logging
+    public EmergencyManager(UserData userData, Scanner scanner, EmergencyDetector detector, IAlert alertSender, EmergencyLogger logger) {
+        this.userData = userData;
+        this.scanner = scanner;
+        this.detector = detector;
+        this.alertSender = alertSender;
+        this.logger = logger;
     }
 
     /**
-     * Inicia el sistema de gestión de emergencias.
-     * Este método implementa el bucle principal de la aplicación
-     * El sistema se ejecutará hasta que el usuario decida salir.
+     * Inicia el bucle principal del sistema de gestión de emergencias.
+     * <p>
+     * Este método se encarga de:
+     * <ol>
+     *     <li>Recolectar los datos del usuario al inicio.</li>
+     *     <li>Entrar en un ciclo infinito que espera y procesa emergencias.</li>
+     *     <li>Manejar la lógica de salida del programa.</li>
+     * </ol>
+     * </p>
      */
-
     public void startSystem() {
         System.out.println("Sistema de Gestión de Emergencias - Iniciado");
         System.out.println("=========================================\n");
         
         try {
-            // Obtener datos del usuario al iniciar
+            // Al iniciar, se solicitan los datos del usuario.
             userData.collectUserData(scanner);
             
-            // Bucle principal
+            // Bucle principal de la aplicación. Se ejecuta hasta que el usuario decida salir.
             while (true) {
                 try {
-                    // Paso 1: Detectar emergencia a través del detector
+                    // 1. Detección: Se delega al detector la tarea de identificar una emergencia.
                     EmergencyEvent event = detector.detectEmergency();
 
-                    // Si se detectó una emergencia válida
+                    // 2. Procesamiento: Si se ha confirmado una emergencia...
                     if (event != null) {
-                        // Mostrar centros de salud de Murcia justo antes de la confirmación de éxito
-                        String ubicacion = event.getLocation();
-                        try {
-                            // Paso 2: Registrar la emergencia en el log
-                            String emergencyId = logger.logEmergency(event);
-                            System.out.println("\n✅ Emergencia registrada con ID: " + emergencyId);
-                            
-                            // Paso 3: Enviar alerta a servicios de emergencia
-                            boolean alertSent = alertSender.send(event);
-                            
-                            if (alertSent) {
-                                // Paso 4: Notificar a los contactos de emergencia
-                                alertSender.notifyContacts(userData, event);
-
-                                // Solo si la ubicación contiene 'murcia', preguntar y mostrar los centros
-                                if (ubicacion != null && ubicacion.toLowerCase().contains("murcia")) {
-                                    System.out.print("\n¿Quieres ver todos los centros de salud de Murcia? (S/N): ");
-                                    String verCentros = scanner.nextLine().trim();
-                                    if (verCentros.equalsIgnoreCase("S")) {
-                                        List<CentroSalud> centros = CentroSaludUtils.cargarCentros("src/main/resources/CentrosdeSaludMurcia.json");
-                                        if (centros != null) {
-                                            int count = 0;
-                                            System.out.println("\n=== TODOS LOS CENTROS DE SALUD DE LA REGIÓN DE MURCIA ===");
-                                            for (CentroSalud centro : centros) {
-                                                System.out.println("- " + centro.getNombre() + " | " + centro.getDireccion() + " | Municipio: " + centro.getMunicipio() + " | Tel: " + centro.getTelefono());
-                                                count++;
-                                            }
-                                            if (count == 0) {
-                                                System.out.println("[DEBUG] No se encontraron centros en el archivo.");
-                                            }
-                                            System.out.println("==================================\n");
-                                        }
-                                    }
-                                }
-
-                                // Confirmación al usuario
-                                System.out.println("\n✅ ¡Emergencia reportada con éxito!");
-                                System.out.println("Se ha creado un registro de la emergencia en el sistema.");
-
-                                // Paso 5: Solicitar feedback del usuario
-                                try {
-                                    logger.collectAndLogFeedback(emergencyId, scanner);
-                                    System.out.println("\n✅ Gracias por tu feedback. Nos ayuda a mejorar el sistema.");
-                                } catch (Exception e) {
-                                    System.err.println("⚠️  Error al recopilar feedback: " + e.getMessage());
-                                }
-                            } else {
-                                // Manejo de error en el envío de alerta
-                                System.out.println("\n❌ No se pudo enviar la alerta. Por favor, intente nuevamente o llame al 112 manualmente.");
-                            }
-                        } catch (Exception e) {
-                            System.err.println("\n❌ Error al procesar la emergencia: " + e.getMessage());
-                        }
+                        processEmergency(event);
                     }
                     
-                    // Preguntar al usuario si desea realizar otra acción
-                    System.out.print("\n¿Desea realizar otra acción? (S/N): ");
+                    // 3. Continuación: Se pregunta al usuario si desea realizar otra operación.
+                    System.out.print("\n¿Desea reportar otra emergencia? (S/N): ");
                     String response = scanner.nextLine().trim();
-                    
-                    // Salir del bucle si el usuario no desea continuar
                     if (!response.equalsIgnoreCase("S")) {
                         System.out.println("\n✅ Saliendo del sistema de emergencias. ¡Hasta pronto!");
-                        break;  // Terminar el bucle principal
+                        break; // Sale del bucle while.
                     }
                     
-                    // Separador visual entre operaciones
                     System.out.println("\n" + "=".repeat(80) + "\n");
                     
                 } catch (Exception e) {
+                    // Captura errores dentro del bucle para que la aplicación no se detenga.
                     System.err.println("❌ Error en el ciclo principal: " + e.getMessage());
-                    System.out.println("Intente nuevamente...\n");
+                    System.out.println("El sistema se ha recuperado. Intente nuevamente...\n");
                 }
             }
         } catch (Exception e) {
+            // Captura errores críticos que ocurran fuera del bucle principal.
             System.err.println("\n❌ Error crítico en el sistema: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Procesa un evento de emergencia confirmado.
+     * <p>
+     * Este método coordina el registro, la alerta y las acciones post-alerta.
+     * </p>
+     *
+     * @param event El evento de emergencia a procesar.
+     */
+    private void processEmergency(EmergencyEvent event) {
+        try {
+            // 2.1. Registro: Se guarda la emergencia en el log, obteniendo un ID único.
+            String emergencyId = logger.logEmergency(event);
+            System.out.println("\n✅ Emergencia registrada con ID: " + emergencyId);
+            
+            // 2.2. Alerta: Se envía la alerta a los servicios de emergencia.
+            boolean alertSent = alertSender.send(event);
+            
+            if (alertSent) {
+                // 2.3. Notificación: Se avisa a los contactos de emergencia del usuario.
+                alertSender.notifyContacts(userData, event);
+
+                // 2.4. Acción local: Si la emergencia es en Murcia, se ofrece info adicional.
+                handleMurciaSpecifics(event.getLocation());
+
+                System.out.println("\n✅ ¡Emergencia reportada con éxito!");
+                System.out.println("Se ha creado un registro de la emergencia en el sistema.");
+
+                // 2.5. Feedback: Se solicita al usuario que valore la experiencia.
+                logger.collectAndLogFeedback(emergencyId, scanner);
+                System.out.println("\n✅ Gracias por tu feedback. Nos ayuda a mejorar el sistema.");
+
+            } else {
+                // Manejo de fallo en el envío de la alerta principal.
+                System.out.println("\n❌ No se pudo enviar la alerta. Por favor, intente nuevamente o llame al 112 manualmente.");
+            }
+        } catch (Exception e) {
+            System.err.println("\n❌ Error al procesar la emergencia: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Maneja la lógica específica si la ubicación de la emergencia es "Murcia".
+     * <p>
+     * Ofrece al usuario la posibilidad de ver una lista de centros de salud locales
+     * cargados desde un archivo JSON.
+     * </p>
+     *
+     * @param location La ubicación de la emergencia.
+     */
+    private void handleMurciaSpecifics(String location) {
+        if (location != null && location.toLowerCase().contains("murcia")) {
+            System.out.print("\n¿Quieres ver todos los centros de salud de Murcia? (S/N): ");
+            String verCentros = scanner.nextLine().trim();
+            if (verCentros.equalsIgnoreCase("S")) {
+                // Carga los datos desde el archivo de recursos.
+                List<CentroSalud> centros = CentroSaludUtils.cargarCentros("/CentrosdeSaludMurcia.json");
+                if (centros != null && !centros.isEmpty()) {
+                    System.out.println("\n=== CENTROS DE SALUD DE LA REGIÓN DE MURCIA ===");
+                    for (CentroSalud centro : centros) {
+                        System.out.printf("- %s | %s | Municipio: %s | Tel: %s%n",
+                            centro.getNombre(), centro.getDireccion(), centro.getMunicipio(), centro.getTelefono());
+                    }
+                    System.out.println("============================================\n");
+                } else {
+                    System.out.println("No se encontraron centros de salud para mostrar.");
+                }
+            }
         }
     }
 }

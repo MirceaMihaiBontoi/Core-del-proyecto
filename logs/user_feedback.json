@@ -1,0 +1,31 @@
+[ {
+  "emergencyId" : "5ac194e7-ad6d-4ab3-a826-1853c86baca8",
+  "satisfactionRating" : 5,
+  "comments" : "s",
+  "feedbackTime" : "2026-02-18T19:57:53"
+}, {
+  "emergencyId" : "0de6ff53-c12e-4173-9be8-1c405f213c48",
+  "satisfactionRating" : 1,
+  "comments" : "nada",
+  "feedbackTime" : "2026-02-18T19:58:22"
+}, {
+  "emergencyId" : "7a0f3e26-1547-4409-9c95-89d953469128",
+  "satisfactionRating" : 5,
+  "comments" : "n",
+  "feedbackTime" : "2026-02-18T20:06:53"
+}, {
+  "emergencyId" : "1f3dc138-78af-4294-b1dc-3455400c985c",
+  "satisfactionRating" : 5,
+  "comments" : "Sin comentarios",
+  "feedbackTime" : "2026-02-18T20:30:15"
+}, {
+  "emergencyId" : "101689c7-17d7-4dc4-869a-187604f146f6",
+  "satisfactionRating" : 5,
+  "comments" : "Sin comentarios",
+  "feedbackTime" : "2026-02-18T20:33:51"
+}, {
+  "emergencyId" : "e1ab46b0-b250-4ec3-bd7a-683f63f06fae",
+  "satisfactionRating" : 3,
+  "comments" : "Sin comentarios.",
+  "feedbackTime" : "2026-02-18T20:52:38"
+} ]
