@@ -1,15 +1,29 @@
+import csv
 import joblib
+from difflib import get_close_matches
 from pathlib import Path
 from fastapi import FastAPI
 from pydantic import BaseModel
 from spellchecker import SpellChecker
 
 MODEL_PATH = Path(__file__).parent / "models" / "emergency_classifier.pkl"
+DATA_PATH = Path(__file__).parent / "data" / "emergencies_dataset.csv"
 
 app = FastAPI(title="Emergency Classifier API")
 
 model = joblib.load(MODEL_PATH)
 spell = SpellChecker(language="es")
+
+# Extraer palabras del dataset como vocabulario principal de correccion
+with open(DATA_PATH, encoding="utf-8") as f:
+    reader = csv.DictReader(f)
+    dataset_words = set()
+    for row in reader:
+        for word in row["text"].lower().split():
+            if len(word) > 2:
+                dataset_words.add(word)
+VOCABULARY = list(dataset_words)
+spell.word_frequency.load_words(VOCABULARY)
 
 PRIORITY_MAP = {
     "MEDICAL": 9,
@@ -83,11 +97,17 @@ def correct_text(text: str) -> str:
     words = text.lower().split()
     corrected = []
     for word in words:
-        if word in spell or len(word) <= 2:
+        if len(word) <= 2 or word in VOCABULARY:
             corrected.append(word)
-        else:
-            correction = spell.correction(word)
-            corrected.append(correction if correction else word)
+            continue
+        # Paso 1: buscar la palabra mas parecida en el vocabulario del CSV
+        matches = get_close_matches(word, VOCABULARY, n=1, cutoff=0.7)
+        if matches:
+            corrected.append(matches[0])
+            continue
+        # Paso 2: si no hay match en el CSV, intentar con pyspellchecker
+        correction = spell.correction(word)
+        corrected.append(correction if correction else word)
     return " ".join(corrected)
 
 
