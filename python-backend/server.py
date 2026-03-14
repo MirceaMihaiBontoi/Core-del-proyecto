@@ -135,6 +135,27 @@ def classify(request: ClassifyRequest):
     )
 
 
+@app.get("/geolocate")
+def geolocate():
+    """Obtiene ubicacion aproximada del usuario por IP publica."""
+    import httpx
+    try:
+        r = httpx.get("http://ip-api.com/json/?lang=es&fields=status,city,regionName,country,lat,lon,query", timeout=5)
+        data = r.json()
+        if data.get("status") == "success":
+            return {
+                "city": data.get("city", ""),
+                "region": data.get("regionName", ""),
+                "country": data.get("country", ""),
+                "lat": data.get("lat", 0),
+                "lon": data.get("lon", 0),
+                "ip": data.get("query", ""),
+            }
+        return {"error": "No se pudo determinar la ubicacion"}
+    except Exception as e:
+        return {"error": str(e)}
+
+
 @app.get("/health")
 def health():
     return {"status": "ok"}

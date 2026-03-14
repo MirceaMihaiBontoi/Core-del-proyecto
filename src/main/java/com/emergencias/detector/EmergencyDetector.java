@@ -146,6 +146,33 @@ public class EmergencyDetector {
     }
 
     private String getLocation() {
+        // Intentar geolocalización automática por IP
+        if (aiClient != null && aiClient.isAvailable()) {
+            System.out.println("\nObteniendo ubicacion automatica...");
+            String geoJson = aiClient.geolocate();
+            if (geoJson != null) {
+                String city = AIClassifierClient.extractString(geoJson, "city");
+                String region = AIClassifierClient.extractString(geoJson, "region");
+                String country = AIClassifierClient.extractString(geoJson, "country");
+                double lat = AIClassifierClient.extractDouble(geoJson, "lat");
+                double lon = AIClassifierClient.extractDouble(geoJson, "lon");
+
+                String autoLocation = city + ", " + region + ", " + country;
+                System.out.println("Ubicacion detectada: " + autoLocation);
+                System.out.printf("Coordenadas: %.4f, %.4f\n", lat, lon);
+                System.out.println("[AVISO] Ubicacion aproximada por IP. Si usa VPN puede ser incorrecta.");
+
+                System.out.print("¿Es correcta esta ubicacion? (S/N): ");
+                if (scanner.nextLine().equalsIgnoreCase("S")) {
+                    return autoLocation;
+                }
+                System.out.println("Introduzca la ubicacion manualmente:");
+            } else {
+                System.out.println("⚠️  No se pudo obtener la ubicacion automatica.");
+            }
+        }
+
+        // Fallback: pedir ubicación manualmente
         while (true) {
             System.out.print("\nUbicacion actual de la emergencia (obligatorio): ");
             String location = scanner.nextLine().trim();

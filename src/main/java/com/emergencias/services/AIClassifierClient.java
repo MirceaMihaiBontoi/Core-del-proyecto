@@ -35,7 +35,7 @@ public class AIClassifierClient {
                     .timeout(Duration.ofSeconds(10))
                     .build();
 
-            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString(java.nio.charset.StandardCharsets.UTF_8));
 
             if (response.statusCode() == 200) {
                 return response.body();
@@ -56,7 +56,7 @@ public class AIClassifierClient {
                     .timeout(Duration.ofSeconds(3))
                     .build();
 
-            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString(java.nio.charset.StandardCharsets.UTF_8));
             return response.statusCode() == 200;
         } catch (Exception e) {
             return false;
@@ -119,6 +119,32 @@ public class AIClassifierClient {
             }
         }
         return items.toArray(new String[0]);
+    }
+
+    /**
+     * Obtiene la ubicacion aproximada del usuario por IP.
+     * Retorna null si hay error.
+     */
+    public String geolocate() {
+        try {
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(baseUrl + "/geolocate"))
+                    .GET()
+                    .timeout(Duration.ofSeconds(5))
+                    .build();
+
+            HttpResponse<String> response = client.send(request,
+                    HttpResponse.BodyHandlers.ofString(java.nio.charset.StandardCharsets.UTF_8));
+
+            if (response.statusCode() == 200) {
+                String body = response.body();
+                if (body.contains("\"error\"")) return null;
+                return body;
+            }
+            return null;
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     private String escapeJson(String text) {
