@@ -5,3 +5,6 @@ pandas
 joblib
 pyspellchecker
 httpx
+SpeechRecognition
+sounddevice
+soundfile

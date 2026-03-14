@@ -71,8 +71,23 @@ public class EmergencyDetector {
 
     private String getEmergencyTypeByAI() {
         System.out.println("\nDescribe lo que esta pasando:");
-        System.out.print("> ");
-        String description = scanner.nextLine().trim();
+        System.out.println("  1. Escribir");
+        System.out.println("  2. Hablar por microfono");
+        System.out.print("Elige opcion (1/2): ");
+        String inputMode = scanner.nextLine().trim();
+
+        String description;
+        if (inputMode.equals("2")) {
+            description = getDescriptionByVoice();
+            if (description == null) {
+                System.out.println("⚠️  No se pudo transcribir. Escriba manualmente:");
+                System.out.print("> ");
+                description = scanner.nextLine().trim();
+            }
+        } else {
+            System.out.print("> ");
+            description = scanner.nextLine().trim();
+        }
 
         if (description.isEmpty()) {
             System.out.println("⚠️  Descripcion vacia. Cambiando a modo manual.");
@@ -193,6 +208,46 @@ public class EmergencyDetector {
                 return location;
             }
             System.out.println("⚠️  Error: La ubicacion no puede estar vacia. Intente nuevamente.");
+        }
+    }
+
+    private String getDescriptionByVoice() {
+        try {
+            System.out.println("\nPreparado para grabar. Hable cuando quiera (5 segundos)...");
+
+            java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
+                    .uri(java.net.URI.create("http://localhost:8000/transcribe?duration=5"))
+                    .POST(java.net.http.HttpRequest.BodyPublishers.noBody())
+                    .timeout(java.time.Duration.ofSeconds(15))
+                    .build();
+
+            java.net.http.HttpResponse<String> response = java.net.http.HttpClient.newHttpClient()
+                    .send(request, java.net.http.HttpResponse.BodyHandlers.ofString(java.nio.charset.StandardCharsets.UTF_8));
+
+            String body = response.body();
+            if (body.contains("\"error\"")) {
+                String error = AIClassifierClient.extractString(body, "error");
+                System.out.println("⚠️  " + error);
+                return null;
+            }
+
+            String text = AIClassifierClient.extractString(body, "text");
+            if (text != null && !text.isEmpty()) {
+                System.out.println("Transcripcion: \"" + text + "\"");
+                System.out.print("¿Es correcto? (S/N): ");
+                if (scanner.nextLine().equalsIgnoreCase("S")) {
+                    return text;
+                }
+                return null;
+            }
+            return null;
+        } catch (Exception e) {
+            System.out.println("⚠️  Error al conectar con el servicio de voz.");
+            System.out.println("    Verifique que:");
+            System.out.println("    - El servidor Python esta arrancado");
+            System.out.println("    - Las dependencias estan instaladas: pip install SpeechRecognition sounddevice soundfile");
+            System.out.println("    - Tiene un microfono conectado y activo");
+            return null;
         }
     }
 

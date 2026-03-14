@@ -183,6 +183,62 @@ def geolocate():
         return {"error": str(e)}
 
 
+@app.post("/transcribe")
+def transcribe(duration: int = 5):
+    """Graba audio del microfono y lo transcribe a texto usando Google Speech API."""
+    import tempfile
+    import os
+
+    # Check 1: dependencias instaladas
+    try:
+        import sounddevice as sd
+    except ImportError:
+        return {"error": "DEPENDENCIA: sounddevice no instalado. Ejecute: pip install sounddevice"}
+    try:
+        import soundfile as sf
+    except ImportError:
+        return {"error": "DEPENDENCIA: soundfile no instalado. Ejecute: pip install soundfile"}
+    try:
+        import speech_recognition as sr
+    except ImportError:
+        return {"error": "DEPENDENCIA: SpeechRecognition no instalado. Ejecute: pip install SpeechRecognition"}
+
+    # Check 2: microfono disponible
+    try:
+        devices = sd.query_devices()
+        input_device = sd.default.device[0]
+        if input_device is None or input_device < 0:
+            return {"error": "MICROFONO: No se detecto ningun microfono. Conecte uno y reinicie el servidor."}
+    except Exception:
+        return {"error": "MICROFONO: No se pudo acceder a los dispositivos de audio."}
+
+    sample_rate = 16000
+    try:
+        audio = sd.rec(int(duration * sample_rate), samplerate=sample_rate, channels=1, dtype="int16")
+        sd.wait()
+
+        # Guardar en archivo temporal WAV
+        tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
+        sf.write(tmp.name, audio, sample_rate)
+        tmp.close()
+
+        # Transcribir con Google Speech API
+        recognizer = sr.Recognizer()
+        with sr.AudioFile(tmp.name) as source:
+            audio_data = recognizer.record(source)
+            text = recognizer.recognize_google(audio_data, language="es-ES")
+
+        os.unlink(tmp.name)
+        return {"text": text}
+
+    except sr.UnknownValueError:
+        return {"error": "No se pudo entender el audio. Intente hablar mas claro y cerca del microfono."}
+    except sr.RequestError as e:
+        return {"error": f"Error del servicio de transcripcion (requiere internet): {e}"}
+    except Exception as e:
+        return {"error": f"Error al grabar audio: {e}"}
+
+
 @app.get("/health")
 def health():
     return {"status": "ok"}
