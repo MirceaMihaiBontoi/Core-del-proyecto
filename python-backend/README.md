@@ -1,155 +1,79 @@
-# Backend Python - Clasificador de Emergencias
+# Backend Python - SoterIA (LLM + STT + TTS)
 
-Backend basado en FastAPI que clasifica emergencias a partir de texto libre usando inteligencia artificial.
+Backend avanzado basado en FastAPI que proporciona servicios de inteligencia artificial para la gestión de emergencias, incluyendo conversación fluida, síntesis de voz y reconocimiento de voz local.
 
 ## Arquitectura
 
 ```
-Java (terminal/Android) --HTTP--> FastAPI ---> Modelo IA ---> Respuesta JSON
+Java (JavaFX) --HTTP--> FastAPI ---> [ LLM (OpenRouter) / Kokoro TTS / Vosk STT ]
 ```
 
-El usuario describe su emergencia en texto libre o por voz (ej: "me duele mucho el pecho"). El backend:
-1. Corrige errores ortograficos (doble pasada: vocabulario CSV + pyspellchecker)
-2. Clasifica el texto con un modelo de Machine Learning (scikit-learn)
-3. Detecta emergencias secundarias si el texto las justifica
-4. Devuelve: tipo(s) de emergencia, prioridad, confianza, contexto e instrucciones de actuacion
+El sistema integra múltiples servicios de IA:
+1. **LLM Conversacional**: Interacción fluida con contexto de usuario e historial de chat (vía OpenRouter).
+2. **TTS (Text-to-Speech)**: Generación de voz de alta calidad con **Kokoro-82M** (local).
+3. **STT (Speech-to-Text)**: Transcripción de voz local con **Vosk** y detección de emociones con **emotion2vec**(beta).
+4. **Clasificador Local**: Modelo Scikit-learn para clasificación rápida y offline de emergencias.
 
-## Categorias de emergencia
+## Características Principales
 
-| Tipo | Descripcion | Prioridad |
-|------|-------------|-----------|
-| MEDICAL | Emergencias medicas | 9 |
-| FIRE | Incendios | 8 |
-| SECURITY | Seguridad ciudadana | 8 |
-| TRAFFIC | Accidentes de trafico | 7 |
-| NATURAL | Desastres naturales | 7 |
-
-## Modelo de IA
-
-El modelo usa **TF-IDF con n-gramas de caracteres** + **Regresion Logistica** (scikit-learn).
-
-- **Dataset**: ~150 frases en espanol etiquetadas manualmente (incluye frases cortas para contextos de emergencia real)
-- **Precision**: ~86% en validacion cruzada
-- **Archivo**: `models/emergency_classifier.pkl` (ya incluido en el repositorio)
-
-> **Nota**: Este modelo es basico, pensado para un ejercicio academico. En un proyecto real se usaria un modelo preentrenado mas potente como BETO (BERT en espanol) o similar, con un dataset mucho mas grande y tecnicas avanzadas de NLP.
+- **Conversación Inteligente**: Soteria recuerda quién eres, tu historial médico y los últimos mensajes del chat.
+- **Streaming de Audio**: El texto y la voz se sincronizan para una respuesta inmediata.
+- **Geolocalización Real**: Detección de ubicación por IP y búsqueda de los 3 centros de salud más cercanos.
+- **Intercepción de Alertas**: Detección automática de palabras clave (112, socorro, etc.) para activar protocolos de emergencia sin pasar por la IA.
 
 ## Requisitos
 
 - Python 3.10 o superior
+- Conexión a Internet (para el LLM vía OpenRouter)
+- Micrófono y Altavoces (para funciones de voz)
 
-## Instalacion
+## Instalación
 
 ```bash
 cd python-backend
 pip install -r requirements.txt
 ```
 
+## Configuración
+
+Crea un archivo `.env` en la carpeta `python-backend/` con tu API Key:
+```env
+OPENROUTER_API_KEY=tu_clave_aqui
+```
+
 ## Uso
 
 ### Arrancar el servidor
 
-PowerShell:
 ```powershell
 cd python-backend; python -m uvicorn server:app --host 0.0.0.0 --port 8000
 ```
 
-CMD:
-```cmd
-cd python-backend && python -m uvicorn server:app --host 0.0.0.0 --port 8000
-```
+### Endpoints Principales
 
-El servidor estara disponible en `http://localhost:8000`
-
-### Probar la clasificacion (opcional)
-
-```bash
-curl -X POST http://localhost:8000/classify -H "Content-Type: application/json" -d "{\"text\": \"me duele mucho el pecho\"}"
-```
-
-Respuesta (emergencia simple):
-```json
-{
-  "priority": 9,
-  "corrected_text": "me duele mucho el pecho",
-  "emergencies": [
-    {
-      "type": "MEDICAL",
-      "type_name": "Emergencia Medica",
-      "confidence": 0.83,
-      "context": "un posible problema cardiaco",
-      "instructions": [
-        "Siente a la persona en posicion comoda, semi-incorporada",
-        "Afloje ropa ajustada (cinturon, corbata, camisa)",
-        "Si tiene medicacion para el corazon, ayudele a tomarla"
-      ]
-    }
-  ]
-}
-```
-
-Respuesta (emergencia mixta):
-```json
-{
-  "priority": 9,
-  "corrected_text": "mi casa se ha incendiado y me he quemado la pierna",
-  "emergencies": [
-    {
-      "type": "FIRE",
-      "type_name": "Incendio",
-      "confidence": 0.68,
-      "context": "un incendio en una vivienda",
-      "instructions": ["Evacue la zona inmediatamente", "..."]
-    },
-    {
-      "type": "MEDICAL",
-      "type_name": "Emergencia Medica",
-      "confidence": 0.28,
-      "context": "una quemadura",
-      "instructions": ["Enfrie la quemadura con agua fria durante al menos 10 minutos", "..."]
-    }
-  ]
-}
-```
-
-### Reentrenar el modelo (opcional)
-
-Si se modifica el dataset en `data/emergencies_dataset.csv`:
-
-```bash
-python train_model.py
-```
-
-Esto regenera el archivo `models/emergency_classifier.pkl`.
-
-### Endpoints
-
-| Metodo | Ruta | Descripcion |
+| Método | Ruta | Descripción |
 |--------|------|-------------|
-| POST | `/classify` | Clasifica texto de emergencia |
-| GET | `/geolocate` | Geolocalizacion aproximada por IP |
-| POST | `/transcribe` | Graba audio del microfono y transcribe a texto |
-| GET | `/health` | Comprueba que el servidor esta activo |
+| POST | `/chat` | Conversación fluida con el LLM (incluye contexto) |
+| POST | `/tts` | Convierte texto a audio WAV usando Kokoro |
+| POST | `/stt` | Transcribe audio a texto localmente |
+| GET | `/geolocate` | Obtiene ubicación real y coordenadas |
+| POST | `/classify` | Clasificador local (offline) de emergencias |
+| GET | `/system-info` | Información de recursos (RAM, GPU, Modelos) |
 
-### Reconocimiento de voz
-
-El endpoint `/transcribe` graba audio del microfono del PC y lo transcribe usando Google Speech API gratuita.
-
-Requiere: `sounddevice`, `soundfile`, `SpeechRecognition`
-
-En Android se reemplazaria por `SpeechRecognizer` nativo, sin necesidad de este endpoint.
-
-## Estructura
+## Estructura del Proyecto
 
 ```
 python-backend/
 ├── data/
-│   ├── emergencies_dataset.csv    # Dataset de entrenamiento
-│   └── emergency_config.json      # Instrucciones y contextos por tipo
+│   ├── emergencies_dataset.csv    # Dataset para el clasificador local
+│   └── emergency_config.json      # Configuración de prioridades
 ├── models/
-│   └── emergency_classifier.pkl   # Modelo entrenado (incluido)
-├── train_model.py                 # Script de entrenamiento
-├── server.py                      # Servidor FastAPI
-├── requirements.txt               # Dependencias Python
-└── README.md
+│   ├── emergency_classifier.pkl   # Modelo Scikit-learn entrenado
+│   └── vosk-model-...             # Modelo de voz local (auto-descargable)
+├── llm_service.py                 # Integración con OpenRouter
+├── tts_service.py                 # Motor de voz Kokoro
+├── stt_service.py                 # Motor de transcripción Vosk/emotion2vec
+├── system_utils.py                # Detección de hardware (GPU/RAM)
+├── server.py                      # Servidor FastAPI y Endpoints
+└── requirements.txt               # Dependencias del sistema
 ```
