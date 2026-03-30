@@ -31,7 +31,7 @@ public class MainApp extends Application {
         loginController.setMainApp(this);
         
         // Configurar escenario
-        primaryStage.setTitle("Sistema de Gestión de Emergencias");
+        primaryStage.setTitle("SoterIA - Sistema de Gestión de Emergencias");
         primaryStage.setScene(loginScene);
         primaryStage.setMinWidth(600);
         primaryStage.setMinHeight(700);
@@ -58,7 +58,7 @@ public class MainApp extends Application {
         chatScene.getStylesheets().add(getClass().getResource("/styles/main.css").toExternalForm());
         
         primaryStage.setScene(chatScene);
-        primaryStage.setTitle("Chat de Emergencias - " + userData.getFullName());
+        primaryStage.setTitle("SoterIA - Chat de Emergencias - " + userData.getFullName());
     }
     
     /**
@@ -66,7 +66,7 @@ public class MainApp extends Application {
      */
     public void showLoginScreen() {
         primaryStage.setScene(loginScene);
-        primaryStage.setTitle("Sistema de Gestión de Emergencias");
+        primaryStage.setTitle("SoterIA - Sistema de Gestión de Emergencias");
     }
 
     /**

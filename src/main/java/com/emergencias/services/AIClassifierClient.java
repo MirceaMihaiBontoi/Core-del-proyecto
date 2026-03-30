@@ -5,6 +5,8 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 
 /**
  * Cliente HTTP que se comunica con el backend Python de clasificacion de emergencias.
@@ -16,6 +18,7 @@ public class AIClassifierClient {
     public AIClassifierClient(String baseUrl) {
         this.baseUrl = baseUrl;
         this.client = HttpClient.newBuilder()
+                .version(HttpClient.Version.HTTP_1_1)
                 .connectTimeout(Duration.ofSeconds(5))
                 .build();
     }
@@ -183,5 +186,221 @@ public class AIClassifierClient {
                    .replace("\n", "\\n")
                    .replace("\r", "\\r")
                    .replace("\t", "\\t");
+    }
+
+    // ============================================================
+    // NUEVOS MÉTODOS - LLM Chat, TTS, STT Avanzado
+    // ============================================================
+
+    /**
+     * Envía un mensaje al LLM para conversación.
+     * Usa fallback: stepfun/step-3.5-flash:free → openrouter/free
+     */
+    public String chat(String message, String context) {
+        try {
+            String jsonBody = "{\"message\": \"" + escapeJson(message) + 
+                             "\", \"context\": \"" + escapeJson(context) + "\"}";
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(baseUrl + "/chat"))
+                    .header("Content-Type", "application/json; charset=utf-8")
+                    .POST(HttpRequest.BodyPublishers.ofString(jsonBody, java.nio.charset.StandardCharsets.UTF_8))
+                    .timeout(Duration.ofSeconds(30))
+                    .build();
+
+            HttpResponse<String> response = client.send(request, 
+                    HttpResponse.BodyHandlers.ofString(java.nio.charset.StandardCharsets.UTF_8));
+
+            if (response.statusCode() == 200) {
+                return response.body();
+            }
+            System.err.println("Error del servidor LLM: HTTP " + response.statusCode());
+            return null;
+        } catch (Exception e) {
+            System.err.println("No se pudo conectar con el servicio LLM: " + e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Sintetiza texto a audio (TTS).
+     * Usa fallback: EmotiVoice → Piper
+     * Retorna los bytes del audio WAV, o null si hay error.
+     */
+    public byte[] synthesize(String text, String emotion) {
+        try {
+            String jsonBody = "{\"text\": \"" + escapeJson(text) + 
+                             "\", \"emotion\": \"" + escapeJson(emotion) + "\"}";
+            // Logs de depuracion: tamaño y prefijo del body que vamos a enviar
+            byte[] reqBytes = jsonBody.getBytes(StandardCharsets.UTF_8);
+            System.out.println("TTS -> POST " + baseUrl + "/tts");
+            System.out.println("TTS -> Request-Bytes: " + reqBytes.length);
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(baseUrl + "/tts"))
+                    .header("Content-Type", "application/json; charset=utf-8")
+                    .POST(HttpRequest.BodyPublishers.ofString(jsonBody, java.nio.charset.StandardCharsets.UTF_8))
+                    .timeout(Duration.ofSeconds(30))
+                    .build();
+
+            HttpResponse<byte[]> response = client.send(request, HttpResponse.BodyHandlers.ofByteArray());
+
+            System.out.println("TTS -> Response status: " + response.statusCode());
+            System.out.println("TTS -> Response headers: " + response.headers().map());
+
+            if (response.statusCode() == 200) {
+                byte[] resp = response.body();
+                int len = resp == null ? 0 : resp.length;
+                System.out.println("TTS -> Response-Bytes: " + len);
+
+                // Detectar si el servidor devolvió JSON en lugar de WAV
+                String ct = response.headers().firstValue("content-type").orElse("");
+                if (ct.contains("application/json")) {
+                    String json = resp == null ? "" : new String(resp, StandardCharsets.UTF_8);
+                    System.err.println("TTS -> Server returned JSON instead of WAV: " + json);
+                    return null;
+                }
+
+                if (len > 0) {
+                    int show = Math.min(len, 16);
+                    System.out.println("TTS -> Response-first-bytes: " + Arrays.toString(Arrays.copyOf(resp, show)));
+                    try {
+                        if (len >= 4) {
+                            String sig = new String(resp, 0, 4, StandardCharsets.US_ASCII);
+                            if (!"RIFF".equals(sig)) {
+                                System.err.println("TTS -> WARNING: response does not start with RIFF (" + sig + ")");
+                            } else {
+                                System.out.println("TTS -> WAV signature OK (RIFF)");
+                            }
+                        }
+                    } catch (Exception ex) {
+                        System.err.println("TTS -> Error leyendo signature: " + ex.getMessage());
+                    }
+                }
+                return resp;
+            }
+            System.err.println("Error del servidor TTS: HTTP " + response.statusCode());
+            return null;
+        } catch (Exception e) {
+            System.err.println("No se pudo conectar con el servicio TTS: " + e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Transcribe audio a texto (STT avanzado).
+     * Usa fallback: emotion2vec → Vosk
+     */
+    public String transcribeAdvanced(byte[] audioData, int sampleRate) {
+        try {
+            // Crear multipart form data
+            String boundary = "----WebKitFormBoundary" + System.currentTimeMillis();
+            
+            java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+            
+            // Agregar archivo de audio
+            baos.write(("--" + boundary + "\r\n").getBytes());
+            baos.write("Content-Disposition: form-data; name=\"audio\"; filename=\"audio.wav\"\r\n".getBytes());
+            baos.write("Content-Type: audio/wav\r\n\r\n".getBytes());
+            baos.write(audioData);
+            baos.write("\r\n".getBytes());
+            
+            // Agregar sample_rate
+            baos.write(("--" + boundary + "\r\n").getBytes());
+            baos.write("Content-Disposition: form-data; name=\"sample_rate\"\r\n\r\n".getBytes());
+            baos.write(String.valueOf(sampleRate).getBytes());
+            baos.write("\r\n".getBytes());
+            
+            // Cerrar boundary
+            baos.write(("--" + boundary + "--\r\n").getBytes());
+            
+            byte[] body = baos.toByteArray();
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(baseUrl + "/stt"))
+                    .header("Content-Type", "multipart/form-data; boundary=" + boundary)
+                    .POST(HttpRequest.BodyPublishers.ofByteArray(body))
+                    .timeout(Duration.ofSeconds(30))
+                    .build();
+
+            HttpResponse<String> response = client.send(request, 
+                    HttpResponse.BodyHandlers.ofString(java.nio.charset.StandardCharsets.UTF_8));
+
+            if (response.statusCode() == 200) {
+                return response.body();
+            }
+            System.err.println("Error del servidor STT: HTTP " + response.statusCode());
+            return null;
+        } catch (Exception e) {
+            System.err.println("No se pudo conectar con el servicio STT: " + e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Analiza emoción del audio.
+     */
+    public String analyzeEmotion(byte[] audioData, int sampleRate) {
+        try {
+            String boundary = "----WebKitFormBoundary" + System.currentTimeMillis();
+            
+            java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+            
+            baos.write(("--" + boundary + "\r\n").getBytes());
+            baos.write("Content-Disposition: form-data; name=\"audio\"; filename=\"audio.wav\"\r\n".getBytes());
+            baos.write("Content-Type: audio/wav\r\n\r\n".getBytes());
+            baos.write(audioData);
+            baos.write("\r\n".getBytes());
+            
+            baos.write(("--" + boundary + "\r\n").getBytes());
+            baos.write("Content-Disposition: form-data; name=\"sample_rate\"\r\n\r\n".getBytes());
+            baos.write(String.valueOf(sampleRate).getBytes());
+            baos.write("\r\n".getBytes());
+            
+            baos.write(("--" + boundary + "--\r\n").getBytes());
+            
+            byte[] body = baos.toByteArray();
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(baseUrl + "/analyze-emotion"))
+                    .header("Content-Type", "multipart/form-data; boundary=" + boundary)
+                    .POST(HttpRequest.BodyPublishers.ofByteArray(body))
+                    .timeout(Duration.ofSeconds(15))
+                    .build();
+
+            HttpResponse<String> response = client.send(request, 
+                    HttpResponse.BodyHandlers.ofString(java.nio.charset.StandardCharsets.UTF_8));
+
+            if (response.statusCode() == 200) {
+                return response.body();
+            }
+            return null;
+        } catch (Exception e) {
+            System.err.println("Error analizando emoción: " + e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Obtiene información del sistema y modelos cargados.
+     */
+    public String getSystemInfo() {
+        try {
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(baseUrl + "/system-info"))
+                    .GET()
+                    .timeout(Duration.ofSeconds(5))
+                    .build();
+
+            HttpResponse<String> response = client.send(request, 
+                    HttpResponse.BodyHandlers.ofString(java.nio.charset.StandardCharsets.UTF_8));
+
+            if (response.statusCode() == 200) {
+                return response.body();
+            }
+            return null;
+        } catch (Exception e) {
+            return null;
+        }
     }
 }

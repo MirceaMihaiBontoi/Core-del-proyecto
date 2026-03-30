@@ -5,12 +5,12 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.emergencias</groupId>
-    <artifactId>sistema-emergencias</artifactId>
+    <artifactId>soteria</artifactId>
     <version>1.0-SNAPSHOT</version>
     <packaging>jar</packaging>
 
-    <name>Sistema de Gestión de Emergencias</name>
-    <description>Sistema inteligente para detección y gestión de emergencias</description>
+    <name>SoterIA</name>
+    <description>Sistema inteligente para detección y gestión de emergencias con IA Soteria</description>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -30,6 +30,11 @@
         <dependency>
             <groupId>org.openjfx</groupId>
             <artifactId>javafx-fxml</artifactId>
+            <version>${javafx.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.openjfx</groupId>
+            <artifactId>javafx-media</artifactId>
             <version>${javafx.version}</version>
         </dependency>
 

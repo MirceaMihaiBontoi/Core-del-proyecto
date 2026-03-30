@@ -2,9 +2,16 @@ import csv
 import joblib
 from difflib import get_close_matches
 from pathlib import Path
-from fastapi import FastAPI
+from fastapi import FastAPI, UploadFile, File, Form
+from fastapi.responses import Response
 from pydantic import BaseModel
 from spellchecker import SpellChecker
+
+# Importar nuevos servicios
+from system_utils import system_config
+from llm_service import llm_service
+from stt_service import stt_service
+import tts_service
 
 MODEL_PATH = Path(__file__).parent / "models" / "emergency_classifier.pkl"
 DATA_PATH = Path(__file__).parent / "data" / "emergencies_dataset.csv"
@@ -15,8 +22,16 @@ app = FastAPI(title="Emergency Classifier API")
 model = joblib.load(MODEL_PATH)
 spell = SpellChecker(language="es")
 
-# Cargar configuracion desde JSON externo
 import json
+import logging
+
+# Configuración de logging profesional
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
 with open(CONFIG_PATH, encoding="utf-8") as f:
     config = json.load(f)
 
@@ -188,6 +203,8 @@ def transcribe(duration: int = 5):
     """Graba audio del microfono y lo transcribe a texto usando Google Speech API."""
     import tempfile
     import os
+    import logging
+    logger = logging.getLogger(__name__)
 
     # Check 1: dependencias instaladas
     try:
@@ -214,8 +231,14 @@ def transcribe(duration: int = 5):
 
     sample_rate = 16000
     try:
-        audio = sd.rec(int(duration * sample_rate), samplerate=sample_rate, channels=1, dtype="int16")
+        # Añadir un pequeño margen de 0.5s para compensar latencia de red
+        actual_duration = duration
+        logger.info(f"Iniciando grabación de {actual_duration} segundos...")
+        
+        # Grabar con un pequeño margen extra
+        audio = sd.rec(int((actual_duration + 0.5) * sample_rate), samplerate=sample_rate, channels=1, dtype="int16")
         sd.wait()
+        logger.info("Grabación finalizada.")
 
         # Guardar en archivo temporal WAV
         tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
@@ -226,9 +249,10 @@ def transcribe(duration: int = 5):
         recognizer = sr.Recognizer()
         with sr.AudioFile(tmp.name) as source:
             audio_data = recognizer.record(source)
-            text = recognizer.recognize_google(audio_data, language="es-ES")
+            text = recognizer.recognize_google(audio_data, language="es-ES")  # type: ignore
 
         os.unlink(tmp.name)
+        logger.info(f"Transcripción exitosa: {text}")
         return {"text": text}
 
     except sr.UnknownValueError:
@@ -239,6 +263,157 @@ def transcribe(duration: int = 5):
         return {"error": f"Error al grabar audio: {e}"}
 
 
+# ============================================================
+# NUEVOS ENDPOINTS - LLM, STT avanzado, TTS
+# ============================================================
+
+class ChatRequest(BaseModel):
+    message: str
+    context: str = ""
+
+class ChatResponse(BaseModel):
+    success: bool
+    response: str
+    model_used: str
+    error: str = ""
+
+@app.middleware("http")
+async def log_requests(request, call_next):
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    # Log del cuerpo de la petición
+    body = await request.body()
+    logger.info(f"Request: {request.method} {request.url}")
+    logger.info(f"Headers: {dict(request.headers)}")
+    logger.info(f"Body: {body}")
+    
+    response = await call_next(request)
+    return response
+
+
+@app.post("/chat", response_model=ChatResponse)
+def chat(request: ChatRequest):
+    """
+    Endpoint para conversación con LLM.
+    Usa fallback automático: stepfun/step-3.5-flash:free → openrouter/free
+    """
+    import logging
+    import traceback
+    logger = logging.getLogger(__name__)
+    logger.info(f"Chat request recibido: message='{request.message}', context='{request.context}'")
+    logger.info(f"Request object: {request}")
+    
+    try:
+        result = llm_service.chat(request.message, request.context)
+        logger.info(f"LLM result: {result}")
+        
+        if not isinstance(result, dict) or 'success' not in result:
+            logger.error(f"Resultado inválido del LLM: {result}")
+            return ChatResponse(success=False, response="Error interno del servidor", model_used="none", error="Resultado inválido del LLM")
+        
+        return ChatResponse(**result)
+    except Exception as e:
+        logger.error(f"Error en chat endpoint: {e}")
+        logger.error(traceback.format_exc())
+        return ChatResponse(success=False, response="Error interno del servidor", model_used="none", error=str(e))
+
+
+class TTSRequest(BaseModel):
+    text: str
+    emotion: str = "neutral"
+
+@app.post("/tts")
+def text_to_speech(request: TTSRequest):
+    """
+    Endpoint para síntesis de voz.
+    Usa fallback automático: EmotiVoice → Piper
+    """
+    result = tts_service.tts_service.synthesize(request.text, request.emotion)
+    
+    if result["success"]:
+        return Response(
+            content=result["audio_data"],
+            media_type="audio/wav",
+            headers={
+                "X-Model-Used": result["model_used"],
+                "X-Sample-Rate": str(result["sample_rate"])
+            }
+        )
+    else:
+        return {"error": result["error"], "model_used": result["model_used"]}
+
+
+@app.post("/stt")
+async def speech_to_text_advanced(
+    audio: UploadFile = File(...),
+    sample_rate: int = Form(16000)
+):
+    """
+    Endpoint avanzado para reconocimiento de voz.
+    Usa fallback automático: emotion2vec → Vosk
+    """
+    try:
+        audio_data = await audio.read()
+        result = stt_service.transcribe(audio_data, sample_rate)
+        return result
+    except Exception as e:
+        return {
+            "success": False,
+            "text": "",
+            "emotion": "unknown",
+            "confidence": 0.0,
+            "model_used": "none",
+            "error": str(e)
+        }
+
+
+@app.post("/analyze-emotion")
+async def analyze_emotion(
+    audio: UploadFile = File(...),
+    sample_rate: int = Form(16000)
+):
+    """
+    Endpoint para detectar emoción en audio.
+    Útil para detectar urgencia del usuario.
+    """
+    try:
+        audio_data = await audio.read()
+        result = stt_service.get_emotion(audio_data, sample_rate)
+        return result
+    except Exception as e:
+        return {"emotion": "unknown", "confidence": 0.0, "urgency": "medium"}
+
+
+@app.get("/system-info")
+def system_info():
+    """
+    Retorna información del sistema y modelos cargados.
+    """
+    return {
+        "ram_gb": system_config.ram_gb,
+        "has_gpu": system_config.has_gpu,
+        "use_heavy_models": system_config.use_heavy_models,
+        "stt_model": system_config.stt_model,
+        "tts_model": system_config.tts_model,
+        "llm_primary": system_config.get_llm_config()["name"],
+        "llm_fallback": system_config.get_llm_fallback_config()["name"],
+        "api_configured": system_config.is_configured()
+    }
+
+
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+if __name__ == "__main__":
+    import uvicorn
+    print("Iniciando servidor Soteria en http://0.0.0.0:8000")
+    print("Endpoints disponibles:")
+    print("  - POST /chat (conversación con LLM)")
+    print("  - POST /tts (síntesis de voz)")
+    print("  - POST /stt (reconocimiento de voz)")
+    print("  - GET  /system-info (información del sistema)")
+    print("  - GET  /health (verificar estado)")
+    uvicorn.run(app, host="0.0.0.0", port=8000)

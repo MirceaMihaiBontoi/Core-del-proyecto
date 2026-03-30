@@ -1,8 +1,8 @@
-# 🚨 Sistema de Gestión de Emergencias Inteligente
+# 🚨 SoterIA - Sistema de Gestión de Emergencias Inteligente
 
 ## 📋 Descripción del Proyecto
 
-**Sistema de Gestión de Emergencias** es una aplicación Java con interfaz gráfica JavaFX que proporciona un sistema completo para detectar, procesar y registrar emergencias. El sistema incluye un chat conversacional con IA que guía al usuario a través de un flujo estructurado de detección de emergencias, envío de alertas a servicios de emergencia (112) y recopilación de feedback posterior.
+**SoterIA** es una aplicación Java con interfaz gráfica JavaFX que proporciona un sistema completo para detectar, procesar y registrar emergencias. El sistema incluye un chat conversacional con IA llamada **Soteria** que guía al usuario a través de un flujo estructurado de detección de emergencias, envío de alertas a servicios de emergencia (112) y recopilación de feedback posterior.
 
 Diseñado como un prototipo educativo, el proyecto demuestra principios sólidos de **Programación Orientada a Objetos (POO)**, incluyendo:
 - ✅ **Interfaces** para abstracciones
@@ -19,16 +19,16 @@ Autor: **Mircea Mihai Bontoi**
 
 ### 1. **Interfaz Gráfica Moderna (JavaFX)**
 - Pantalla de login/registro con diseño moderno
-- Chat conversacional con IA
+- Chat conversacional con IA **Soteria**
 - Reconocimiento de voz
 - Tema visual profesional
 
-### 2. **Detección de Emergencias con IA**
+### 2. **Detección de Emergencias con IA (Soteria)**
 El sistema puede detectar emergencias mediante:
 - **Análisis de texto**: Describe lo que está pasando
 - **Reconocimiento de voz**: Presiona el botón de micrófono
-- **Clasificación automática**: IA identifica el tipo de emergencia
-- **Fallback manual**: Menú de opciones si la IA no está disponible
+- **Clasificación automática**: Soteria identifica el tipo de emergencia
+- **Fallback manual**: Menú de opciones si Soteria no está disponible
 
 Tipos de emergencia soportados:
 - 🚗 Accidente de tráfico
@@ -401,6 +401,10 @@ Posibles mejoras para versiones futuras:
 ---
 
 ## 📝 Notas Técnicas
+
+### Nombre de la Aplicación
+- **SoterIA**: Nombre de la aplicación completa
+- **Soteria**: Nombre de la IA asistente
 
 ### Refactorización Reciente
 - **EmergencyDetector** refactorizado para funcionar con JavaFX

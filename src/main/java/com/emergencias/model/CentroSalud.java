@@ -49,4 +49,6 @@ public class CentroSalud {
     public String getNombre() { return nombre; }
     public String getDireccion() { return direccion; }
     public String getTelefono() { return telefono; }
+    public String getLatitud() { return latitud; }
+    public String getLongitud() { return longitud; }
 }
