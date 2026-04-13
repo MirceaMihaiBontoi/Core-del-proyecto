@@ -108,7 +108,7 @@ class SystemConfig:
         # Configurar LLM con fallback
         self.llm_models = [
             {
-                "name": "stepfun/step-3.5-flash:free",
+                "name": "z-ai/glm-4.5-air:free",
                 "api_base": "https://openrouter.ai/api/v1",
                 "api_key": self.openrouter_api_key,
             },
