@@ -70,6 +70,45 @@
             <version>${junit.version}</version>
             <scope>test</scope>
         </dependency>
+
+        <!-- Vosk para STT Nativo -->
+        <dependency>
+            <groupId>com.alphacephei</groupId>
+            <artifactId>vosk</artifactId>
+            <version>0.3.45</version>
+        </dependency>
+        <dependency>
+            <groupId>net.java.dev.jna</groupId>
+            <artifactId>jna</artifactId>
+            <version>5.13.0</version>
+        </dependency>
+
+        <!-- llama.cpp (Java bindings) para inferencia LLM local via GGUF -->
+        <!-- Trae libs nativas Windows/Linux/macOS. Android requiere compilar .so arm64-v8a aparte. -->
+        <dependency>
+            <groupId>de.kherud</groupId>
+            <artifactId>llama</artifactId>
+            <version>4.2.0</version>
+        </dependency>
+
+        <!-- Lucene para Búsqueda Vectorial (HNSW) -->
+        <dependency>
+            <groupId>org.apache.lucene</groupId>
+            <artifactId>lucene-core</artifactId>
+            <version>9.11.1</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.lucene</groupId>
+            <artifactId>lucene-queryparser</artifactId>
+            <version>9.11.1</version>
+        </dependency>
+
+        <!-- JGraphT para Grafo de Conocimiento -->
+        <dependency>
+            <groupId>org.jgrapht</groupId>
+            <artifactId>jgrapht-core</artifactId>
+            <version>1.5.2</version>
+        </dependency>
     </dependencies>
 
     <build>
@@ -90,7 +129,7 @@
                 <artifactId>javafx-maven-plugin</artifactId>
                 <version>0.0.8</version>
                 <configuration>
-                    <mainClass>com.emergencias.ui.MainApp</mainClass>
+                    <mainClass>com.soteria.ui.MainApp</mainClass>
                     <options>
                         <option>--enable-native-access=javafx.graphics</option>
                     </options>
@@ -105,7 +144,7 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>com.emergencias.ui.MainApp</mainClass>
+                            <mainClass>com.soteria.ui.MainApp</mainClass>
                         </manifest>
                     </archive>
                 </configuration>

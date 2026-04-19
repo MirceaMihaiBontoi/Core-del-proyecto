@@ -4,7 +4,7 @@
 <?import javafx.scene.layout.*?>
 <?import javafx.geometry.Insets?>
 
-<VBox xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.emergencias.ui.ChatController" 
+<VBox xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.soteria.ui.controller.ChatController" 
       styleClass="chat-panel">
     
     <!-- Área de mensajes -->
