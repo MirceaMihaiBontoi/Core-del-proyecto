@@ -12,17 +12,23 @@ import java.util.Map;
  Se usa cuando no hay base de datos disponible.
  */
 public class UserFileManager {
-    private static final String CACHE_DIR = "cache";
-    private static final String USERS_FILE = CACHE_DIR + "/users.dat";
+    private String cacheDir;
+    private String usersFile;
     private Map<String, String[]> users; // username -> [passwordHash, name, phone, contact, medical]
     
     public UserFileManager() {
-        users = new HashMap<>();
+        this("cache");
+    }
+
+    public UserFileManager(String customCacheDir) {
+        this.cacheDir = customCacheDir;
+        this.usersFile = cacheDir + "/users.dat";
+        this.users = new HashMap<>();
         
         // Crear directorio de caché si no existe
-        File cacheDir = new File(CACHE_DIR);
-        if (!cacheDir.exists()) {
-            cacheDir.mkdirs();
+        File dir = new File(cacheDir);
+        if (!dir.exists()) {
+            dir.mkdirs();
         }
         
         loadUsers();
@@ -32,7 +38,7 @@ public class UserFileManager {
      Carga usuarios desde archivo.
      */
     private void loadUsers() {
-        File file = new File(USERS_FILE);
+        File file = new File(usersFile);
         if (!file.exists()) {
             System.out.println("📝 Archivo de usuarios no existe. Se creará al registrar primer usuario.");
             return;
@@ -60,7 +66,7 @@ public class UserFileManager {
      Guarda usuarios en archivo.
      */
     private void saveUsers() {
-        try (PrintWriter writer = new PrintWriter(new FileWriter(USERS_FILE))) {
+        try (PrintWriter writer = new PrintWriter(new FileWriter(usersFile))) {
             writer.println("# usuarios.dat - Formato: username|passwordHash|name|phone|contact|medical");
             for (Map.Entry<String, String[]> entry : users.entrySet()) {
                 String username = entry.getKey();
