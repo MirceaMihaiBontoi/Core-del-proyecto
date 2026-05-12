@@ -19,11 +19,30 @@ This guide provides detailed instructions for installing and running SoterIA on 
 - **Disk Space**: 10 GB free space for models and application
 - **CPU**: x64 architecture (ARM64 support planned for future)
 
-## Required System Packages
+---
+
+## Quick Start (Recommended)
+
+The easiest way to install and launch SoterIA is with the provided setup script. It installs all system dependencies, registers the Maven JARs, compiles the project, and starts the application in one step.
+
+```bash
+chmod +x setup_linux.sh
+./setup_linux.sh
+```
+
+The script requires `sudo` to install system packages and auto-detects your distribution (Ubuntu/Debian, Fedora/RHEL, Arch, openSUSE). If anything is missing it will tell you exactly what to fix before continuing.
+
+---
+
+## Manual Installation
+
+If you prefer to install dependencies yourself, follow the steps below.
+
+### 1. Install System Packages
 
 SoterIA requires several system libraries to run native components (jllama, Sherpa-ONNX).
 
-### Ubuntu / Debian
+#### Ubuntu / Debian
 
 ```bash
 sudo apt-get update
@@ -35,7 +54,7 @@ sudo apt-get install -y \
     maven
 ```
 
-### Fedora / RHEL / CentOS
+#### Fedora / RHEL / CentOS
 
 ```bash
 sudo dnf install -y \
@@ -46,7 +65,7 @@ sudo dnf install -y \
     maven
 ```
 
-### Arch Linux
+#### Arch Linux
 
 ```bash
 sudo pacman -S --needed \
@@ -56,89 +75,87 @@ sudo pacman -S --needed \
     maven
 ```
 
-## Installation Steps
+### 2. Verify Native Libraries
 
-### Option 1: Binary Distribution (Recommended)
+Ensure the following files are present before building:
 
-1. **Download the latest release**:
-   ```bash
-   # Download from GitHub releases (when available)
-   wget https://github.com/MirceaMihaiBontoi/soteria/releases/latest/soteria-linux-x64.tar.gz
-   ```
+```
+lib/llama/libjllama.so                        ← jllama native library
+lib/sherpa-onnx/linux/libsherpa-onnx-jni.so   ← Sherpa-ONNX JNI
+lib/sherpa-onnx/linux/libonnxruntime.so        ← ONNX Runtime
+lib/sherpa-onnx/sherpa-onnx-v1.13.0.jar        ← Sherpa-ONNX Java API
+```
 
-2. **Extract the archive**:
-   ```bash
-   tar -xzf soteria-linux-x64.tar.gz
-   cd soteria
-   ```
+If any `.so` is missing, see the sections below.
 
-3. **Verify native libraries**:
-   ```bash
-   ls -la lib/llama/jllama.so
-   ls -la lib/sherpa-onnx/linux/
-   ```
+#### libjllama.so
 
-4. **Run the application**:
-   ```bash
-   ./run.sh
-   ```
+Compile from the jllama fork following `lib/llama/BUILD.md`. Quick version:
 
-### Option 2: Build from Source
+```bash
+git clone https://github.com/MirceaMihaiBontoi/java-llama.cpp.git
+cd java-llama.cpp
+mkdir build && cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release \
+         -DLLAMA_NATIVE_ARCH=OFF \
+         -DLLAMA_CUDA=OFF \
+         -DLLAMA_METAL=OFF
+make -j$(nproc)
+cp libjllama.so /path/to/soteria/lib/llama/
+```
 
-1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/MirceaMihaiBontoi/soteria.git
-   cd soteria
-   ```
+#### Sherpa-ONNX libraries
 
-2. **Compile jllama for Linux** (if not already present):
-   
-   See `lib/llama/BUILD.md` for detailed instructions. Quick version:
-   
-   ```bash
-   # Clone the jllama fork
-   git clone https://github.com/MirceaMihaiBontoi/java-llama.cpp.git
-   cd java-llama.cpp
-   
-   # Build
-   mkdir build && cd build
-   cmake .. -DCMAKE_BUILD_TYPE=Release \
-            -DLLAMA_NATIVE_ARCH=OFF \
-            -DLLAMA_CUDA=OFF \
-            -DLLAMA_METAL=OFF
-   make -j$(nproc)
-   
-   # Copy to SoterIA
-   cp libjllama.so /path/to/soteria/lib/llama/jllama.so
-   cd /path/to/soteria
-   ```
+Download the Linux x64 shared library package from the releases page:
 
-3. **Download Sherpa-ONNX binaries** (if not already present):
-   
-   See `lib/sherpa-onnx/linux/README.md` for detailed instructions. Quick version:
-   
-   ```bash
-   # Download
-   wget https://github.com/k2-fsa/sherpa-onnx/releases/download/v1.13.0/sherpa-onnx-v1.13.0-linux-x64-shared.tar.bz2
-   
-   # Extract
-   tar -xjf sherpa-onnx-v1.13.0-linux-x64-shared.tar.bz2
-   
-   # Copy libraries
-   cp sherpa-onnx-v1.13.0-linux-x64-shared/lib/libsherpa-onnx-jni.so lib/sherpa-onnx/linux/
-   cp sherpa-onnx-v1.13.0-linux-x64-shared/lib/libonnxruntime.so lib/sherpa-onnx/linux/
-   ```
+```
+https://github.com/k2-fsa/sherpa-onnx/releases/tag/v1.13.0
+```
 
-4. **Build the application**:
-   ```bash
-   chmod +x build.sh
-   ./build.sh
-   ```
+Look for `sherpa-onnx-v1.13.0-linux-x64-shared.tar.bz2`, extract it, and copy:
 
-5. **Run the application**:
-   ```bash
-   mvn javafx:run
-   ```
+```bash
+tar -xjf sherpa-onnx-v1.13.0-linux-x64-shared.tar.bz2
+cp sherpa-onnx-v1.13.0-linux-x64-shared/lib/libsherpa-onnx-jni.so lib/sherpa-onnx/linux/
+cp sherpa-onnx-v1.13.0-linux-x64-shared/lib/libonnxruntime.so     lib/sherpa-onnx/linux/
+```
+
+### 3. Register JARs in Maven Local Repository
+
+```bash
+# sherpa-onnx Java API
+mvn install:install-file \
+    -Dfile=lib/sherpa-onnx/sherpa-onnx-v1.13.0.jar \
+    -DgroupId=com.k2fsa.sherpa \
+    -DartifactId=sherpa-onnx \
+    -Dversion=1.13.0 \
+    -Dpackaging=jar
+
+# sherpa-onnx native Linux
+mvn install:install-file \
+    -Dfile=lib/sherpa-onnx/sherpa-onnx-native-linux-x64-1.13.0.jar \
+    -DgroupId=com.k2fsa.sherpa \
+    -DartifactId=sherpa-onnx-native-linux-x64 \
+    -Dversion=1.13.0 \
+    -Dpackaging=jar
+```
+
+### 4. Build the Project
+
+```bash
+export LD_LIBRARY_PATH="/tmp:$LD_LIBRARY_PATH"
+mvn clean package -DskipTests
+```
+
+### 5. Run the Application
+
+```bash
+mvn javafx:run \
+    -Djava.library.path="/tmp:lib/sherpa-onnx/linux" \
+    -Dde.kherud.llama.lib.path=/tmp/libjllama.so
+```
+
+---
 
 ## Verifying Installation
 
@@ -146,8 +163,8 @@ sudo pacman -S --needed \
 
 ```bash
 # Verify jllama
-ls -lh lib/llama/jllama.so
-ldd lib/llama/jllama.so
+ls -lh lib/llama/libjllama.so
+ldd lib/llama/libjllama.so
 
 # Verify Sherpa-ONNX
 ls -lh lib/sherpa-onnx/linux/
@@ -169,32 +186,53 @@ mvn -version
 # Should show version 3.9.x or higher
 ```
 
+---
+
 ## File Permissions
 
 For security, native libraries should be read-only:
 
 ```bash
-# Set library permissions
 chmod 444 lib/llama/*.so
 chmod 444 lib/sherpa-onnx/linux/*.so
-
-# Set directory permissions
-chmod 555 lib/
-chmod 555 lib/llama/
-chmod 555 lib/sherpa-onnx/
-chmod 555 lib/sherpa-onnx/linux/
+chmod 555 lib/ lib/llama/ lib/sherpa-onnx/ lib/sherpa-onnx/linux/
 ```
+
+---
+
+## Directory Structure
+
+```
+soteria/
+├── lib/
+│   ├── llama/
+│   │   ├── libjllama.so           # Linux jllama native library
+│   │   └── BUILD.md               # Build instructions
+│   ├── sherpa-onnx/
+│   │   ├── linux/
+│   │   │   ├── libsherpa-onnx-jni.so
+│   │   │   └── libonnxruntime.so
+│   │   └── windows/               # Windows libraries (ignored on Linux)
+│   └── native/                    # Fallback directory
+├── src/                           # Source code
+├── target/                        # Build output
+├── pom.xml                        # Maven configuration
+├── setup_linux.sh                 # Automated setup & launch script
+└── INSTALL_LINUX.md               # This file
+```
+
+---
 
 ## Troubleshooting
 
-### Issue: `UnsatisfiedLinkError: jllama.so`
+### Issue: `UnsatisfiedLinkError: libjllama.so`
 
 **Cause**: jllama native library is missing or not in the correct location.
 
 **Solution**:
-1. Verify the file exists: `ls -la lib/llama/jllama.so`
+1. Verify the file exists: `ls -la lib/llama/libjllama.so`
 2. If missing, compile from the fork (see `lib/llama/BUILD.md`)
-3. Ensure file permissions allow reading: `chmod 444 lib/llama/jllama.so`
+3. Ensure file permissions allow reading: `chmod 444 lib/llama/libjllama.so`
 
 ### Issue: `libonnxruntime.so: cannot open shared object file`
 
@@ -223,13 +261,11 @@ sudo pacman -S openmp
 
 ### Issue: `Permission denied` when running
 
-**Cause**: File permissions are too restrictive.
+**Cause**: Script is not executable.
 
 **Solution**:
 ```bash
-chmod +x build.sh
-chmod +x lib/llama/*.so
-chmod +x lib/sherpa-onnx/linux/*.so
+chmod +x setup_linux.sh
 ```
 
 ### Issue: Application starts but no audio input/output
@@ -250,51 +286,27 @@ chmod +x lib/sherpa-onnx/linux/*.so
 2. Update graphics drivers
 3. Try software rendering: `export PRISM_ORDER=sw`
 
-## Directory Structure
-
-```
-soteria/
-├── lib/
-│   ├── llama/
-│   │   ├── jllama.so              # Linux jllama native library
-│   │   └── BUILD.md               # Build instructions
-│   ├── sherpa-onnx/
-│   │   ├── linux/
-│   │   │   ├── libsherpa-onnx-jni.so
-│   │   │   ├── libonnxruntime.so
-│   │   │   └── README.md          # Download instructions
-│   │   └── windows/               # Windows libraries (ignored on Linux)
-│   └── native/                    # Fallback directory
-├── src/                           # Source code
-├── target/                        # Build output
-├── pom.xml                        # Maven configuration
-├── build.sh                       # Linux build script
-└── INSTALL_LINUX.md              # This file
-```
+---
 
 ## Performance Tuning
 
-### Memory Configuration
-
-For better performance with large models:
+### Increase JVM heap for large models
 
 ```bash
 export MAVEN_OPTS="-Xmx4g"
 mvn javafx:run
 ```
 
-### CPU Optimization
-
-jllama and Sherpa-ONNX will automatically use available CPU cores. For manual control:
+### Limit CPU threads
 
 ```bash
-export OMP_NUM_THREADS=4  # Limit to 4 threads
+export OMP_NUM_THREADS=4
 mvn javafx:run
 ```
 
-## Uninstallation
+---
 
-To remove SoterIA:
+## Uninstallation
 
 ```bash
 # Remove application directory
@@ -304,11 +316,13 @@ rm -rf /path/to/soteria
 rm -rf ~/.soteria
 ```
 
+---
+
 ## Getting Help
 
-- **Documentation**: See `README.md` for general information
-- **Build Issues**: Check `lib/llama/BUILD.md` and `lib/sherpa-onnx/linux/README.md`
+- **Build issues**: `lib/llama/BUILD.md`
 - **GitHub Issues**: https://github.com/MirceaMihaiBontoi/soteria/issues
+- **General info**: `README.md`
 
 ## Notes
 
@@ -328,7 +342,7 @@ rm -rf ~/.soteria
 
 After installation:
 
-1. Run the application: `mvn javafx:run`
+1. Run the application: `./setup_linux.sh` or `mvn javafx:run`
 2. Complete the onboarding wizard
 3. Select your AI model profile (Lite/Balanced/Expert)
 4. Configure your emergency profile

@@ -10,7 +10,7 @@
     <packaging>jar</packaging>
 
     <name>SoterIA</name>
-    <description>Sistema inteligente para detección y gestión de emergencias con IA Soteria</description>
+    <description>Intelligent system for emergency detection and management powered by Soteria AI</description>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -34,7 +34,7 @@
             <version>${javafx.version}</version>
         </dependency>
 
-        <!-- Jackson para JSON -->
+        <!-- Jackson for JSON -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-core</artifactId>
@@ -51,7 +51,7 @@
             <version>${jackson.version}</version>
         </dependency>
 
-        <!-- JUnit 5 para tests -->
+        <!-- JUnit 5 for testing -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
@@ -88,21 +88,21 @@
             <version>9.12.1</version>
         </dependency>
 
-        <!-- JGraphT para Grafo de Conocimiento -->
+        <!-- JGraphT for Knowledge Graph -->
         <dependency>
             <groupId>org.jgrapht</groupId>
             <artifactId>jgrapht-core</artifactId>
             <version>1.5.2</version>
         </dependency>
 
-        <!-- AtlantaFX: JavaFX theming moderno -->
+        <!-- AtlantaFX: modern JavaFX theming -->
         <dependency>
             <groupId>io.github.mkpaz</groupId>
             <artifactId>atlantafx-base</artifactId>
             <version>2.0.1</version>
         </dependency>
 
-        <!-- Ikonli: iconos vectoriales para JavaFX (reemplazan emojis en FABs) -->
+        <!-- Ikonli: vector icons for JavaFX (replaces emoji in FABs) -->
         <dependency>
             <groupId>org.kordamp.ikonli</groupId>
             <artifactId>ikonli-javafx</artifactId>
@@ -114,7 +114,7 @@
             <version>12.3.1</version>
         </dependency>
 
-        <!-- Apache Commons Compress para extraer el bundle tar.bz2 de Kokoro -->
+        <!-- Apache Commons Compress for extracting the Kokoro tar.bz2 bundle -->
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-compress</artifactId>
@@ -127,7 +127,7 @@
             <version>2.18.0</version>
         </dependency>
 
-        <!-- sherpa-onnx JNI (local) para TTS -->
+        <!-- sherpa-onnx JNI (local) for TTS -->
         <dependency>
             <groupId>com.k2fsa.sherpa</groupId>
             <artifactId>sherpa-onnx</artifactId>
@@ -185,7 +185,7 @@
 
     <build>
         <plugins>
-            <!-- Compilador Maven -->
+            <!-- Maven Compiler Plugin -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
@@ -200,7 +200,7 @@
                 </configuration>
             </plugin>
 
-            <!-- Copiar dependencias a target/lib automáticamente -->
+            <!-- Copy dependencies to target/lib automatically -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-dependency-plugin</artifactId>
@@ -238,7 +238,7 @@
                 </configuration>
             </plugin>
 
-            <!-- JAR ejecutable -->
+            <!-- Executable JAR -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-jar-plugin</artifactId>

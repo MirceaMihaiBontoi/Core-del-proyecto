@@ -2,6 +2,8 @@
 
 ## Project Overview
 
+> **Academic Project** — SoterIA is developed academic project. It is intended for educational and research purposes only and should not be used in real emergency situations.
+
 SoterIA is a sophisticated, native Java-based emergency management platform designed to orchestrate critical responses in high-pressure environments. By integrating natural language processing, deterministic classification logic, and a multi-layered architectural design, SoterIA provides a robust framework for detecting, managing, and documenting emergency events.
 
 The system is engineered for maximum reliability, utilizing the latest features of JDK 25 to provide a high-performance desktop experience through a responsive JavaFX interface. SoterIA serves as both a primary interaction point for users in crisis and a coordination hub for emergency dispatch protocols.
@@ -120,21 +122,40 @@ com.soteria.ui
 ### Build Instructions
 
 #### Windows
-```bash
-# Clean previous builds and compile sources
-mvn clean compile
 
-# Execute the application
+The easiest way is to run the setup script, which installs all dependencies, registers the Maven JARs, compiles the project, and launches the application:
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\setup_windows.ps1
+```
+
+For a manual build after dependencies are in place:
+
+```powershell
+mvn clean compile
 mvn javafx:run
 ```
 
+See `INSTALL_WINDOWS.md` for detailed manual installation instructions.
+
 #### Linux
+
+The easiest way is to run the setup script:
+
+```bash
+chmod +x setup_linux.sh
+./setup_linux.sh
+```
+
+For a manual build after dependencies are in place:
+
 ```bash
 mvn clean compile -Plinux
 mvn javafx:run
 ```
 
-**Note**: Linux users must ensure native libraries are present in `lib/` before building. See `INSTALL_LINUX.md` for detailed instructions.
+See `INSTALL_LINUX.md` for detailed manual installation instructions.
 
 ### Testing and Verification
 The system includes an extensive suite of unit tests to verify domain logic and record integrity:
