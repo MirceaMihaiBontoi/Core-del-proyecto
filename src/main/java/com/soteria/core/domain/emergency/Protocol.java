@@ -3,8 +3,11 @@ package com.soteria.core.domain.emergency;
 import java.util.List;
 
 /**
- * Represents an emergency protocol for response across various domains
- * (Medical, Fire, Security, etc.).
+ * Represents an emergency protocol loaded from {@code medical_protocols.json}.
+ *
+ * <p>Protocols are retrieved by the RAG pipeline (Lucene + JGraphT) and passed
+ * to the LLM as structured context. Follows the JavaBean convention for
+ * Jackson deserialization.
  */
 public class Protocol {
     private String id;
@@ -12,6 +15,8 @@ public class Protocol {
     private String category;
     private List<String> keywords;
     private List<String> steps;
+
+    /** Lower value means higher priority when multiple protocols match. */
     private int priority;
 
     public Protocol() {
@@ -37,7 +42,8 @@ public class Protocol {
     public void setPriority(int priority) { this.priority = priority; }
 
     /**
-     * Helper to get a full text representation for AI context.
+     * Returns a plain-text summary of this protocol for use as LLM context.
+     * Format: {@code "Protocol: <title>\nSteps: <step1>. <step2>. ..."}
      */
     public String getContent() {
         String stepsText = (steps == null || steps.isEmpty()) ? "No steps defined." : String.join(". ", steps);

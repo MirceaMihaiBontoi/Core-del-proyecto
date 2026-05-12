@@ -4,22 +4,19 @@ import com.soteria.core.model.EmergencyEvent;
 import com.soteria.core.model.UserData;
 
 /**
- * Interface that defines the contract for sending emergency alerts.
- * Implements the Strategy pattern to allow different forms of notification.
+ * Port for dispatching emergency alerts.
+ * Implementations live in {@code infrastructure.notification}.
  */
 public interface AlertService {
+
     /**
-     * Sends an emergency alert.
+     * Dispatches the primary alert for an emergency event.
+     *
+     * @return {@code true} if the alert was sent successfully, {@code false} otherwise
      */
     boolean send(EmergencyEvent event);
-    
-    /**
-     * Notifies the user's emergency contacts.
-     */
+
     void notifyContacts(UserData userData, EmergencyEvent event);
-    
-    /**
-     * Gets the alert type.
-     */
+
     String getAlertType();
 }

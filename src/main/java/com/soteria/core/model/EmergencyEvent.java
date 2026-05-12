@@ -4,7 +4,10 @@ import java.time.LocalDateTime;
 import java.util.Objects;
 
 /**
- * Record representing an emergency event in the system.
+ * An immutable snapshot of a detected emergency event.
+ *
+ * <p>The compact constructor enforces invariants at creation time — no null fields,
+ * and {@code severityLevel} must be in [1, 10]. A valid instance is always consistent.
  */
 public record EmergencyEvent(
     String emergencyType,
@@ -13,23 +16,18 @@ public record EmergencyEvent(
     LocalDateTime timestamp,
     String userData
 ) {
-    /**
-     * Compact constructor for validation.
-     */
     public EmergencyEvent {
         Objects.requireNonNull(emergencyType, "Emergency type cannot be null");
         Objects.requireNonNull(location, "Location cannot be null");
         Objects.requireNonNull(timestamp, "Timestamp cannot be null");
         Objects.requireNonNull(userData, "User data cannot be null");
-        
+
         if (severityLevel < 1 || severityLevel > 10) {
             throw new IllegalArgumentException("Severity level must be between 1 and 10, got: " + severityLevel);
         }
     }
 
-    /**
-     * Canonical constructor with default timestamp if needed.
-     */
+    /** Convenience constructor that sets {@code timestamp} to the current date-time. */
     public EmergencyEvent(String emergencyType, String location, int severityLevel, String userData) {
         this(emergencyType, location, severityLevel, LocalDateTime.now(), userData);
     }

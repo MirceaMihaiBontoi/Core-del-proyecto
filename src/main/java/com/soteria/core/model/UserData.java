@@ -1,7 +1,11 @@
 package com.soteria.core.model;
 
 /**
- * Record containing the user's personal data for emergency situations.
+ * Immutable profile of the device owner, persisted to {@code ~/.soteria/profile.json}.
+ *
+ * <p>{@code ttsSpeechRate} and {@code wakeWordEnabled} are optional ({@code null} = not set).
+ * Use {@link #effectiveTtsSpeechRate()} and {@link #effectiveWakeWordEnabled()} to get
+ * resolved values with defaults applied.
  */
 public record UserData(
     String fullName,
@@ -12,24 +16,32 @@ public record UserData(
     String emergencyContact,
     String preferredModel,
     String preferredLanguage,
-    /** Optional; when null, UI uses default TTS speech rate (~1.44). */
     Float ttsSpeechRate,
-    /** Optional; when null, wake word defaults to on. */
     Boolean wakeWordEnabled
 ) {
+    /** Sentinel assigned to {@code fullName} when the onboarding wizard is incomplete. */
     public static final String INCOMPLETE_NAME = "[INCOMPLETE]";
 
+    /**
+     * Returns the TTS speech rate, falling back to {@code 1.44} if not set,
+     * clamped to [0.5, 2.0].
+     */
     public float effectiveTtsSpeechRate() {
         float v = ttsSpeechRate != null ? ttsSpeechRate : 1.44f;
         return Math.clamp(v, 0.5f, 2.0f);
     }
 
+    /** Returns whether the wake-word listener is active, defaulting to {@code true} if not set. */
     public boolean effectiveWakeWordEnabled() {
         return wakeWordEnabled == null || wakeWordEnabled;
     }
 
+    /**
+     * Returns {@code true} if the profile has a real name (not {@link #INCOMPLETE_NAME})
+     * and a non-blank emergency contact.
+     */
     public boolean isComplete() {
-        return fullName != null && !fullName.equals(INCOMPLETE_NAME) 
+        return fullName != null && !fullName.equals(INCOMPLETE_NAME)
                 && emergencyContact != null && !emergencyContact.isBlank();
     }
 

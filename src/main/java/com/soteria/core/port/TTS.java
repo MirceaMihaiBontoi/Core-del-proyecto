@@ -1,85 +1,46 @@
 package com.soteria.core.port;
 
 /**
- * Interface for Text-to-Speech services.
- * Provides speech synthesis capabilities for emergency responses.
+ * Port for text-to-speech synthesis.
  */
 public interface TTS {
-    /**
-     * Speaks the given text.
-     * @param text The text to speak
-     */
+
     void speak(String text);
 
     /**
      * Queues speech without interrupting previous audio.
      * Used for streaming TTS where sentences arrive progressively.
-     * Default falls back to speak() for implementations that don't support queuing.
+     * Default implementation falls back to {@link #speak(String)}.
      */
     default void speakQueued(String text) {
         speak(text);
     }
 
     /**
-     * Queues speech; {@code sanitizeLanguageHint} selects strict text filtering (e.g. CJK) for this chunk.
-     * Implementations that ignore hints may use {@link #speakQueued(String)} only.
+     * Queues speech with a language hint for text sanitization (e.g. CJK filtering).
+     * Implementations that ignore hints may delegate to {@link #speakQueued(String)}.
      */
     default void speakQueued(String text, String sanitizeLanguageHint) {
         speakQueued(text);
     }
 
-    /**
-     * Stops any ongoing speech.
-     */
     void stop();
 
-    /**
-     * Sets the language to dynamically switch the speaker voice.
-     * @param language The language (e.g., "SPANISH", "ENGLISH")
-     */
     void setLanguage(String language);
 
-    /**
-     * Sets the speech rate (speed).
-     * @param rate Speech rate (0.5 = slow, 1.0 = normal, 2.0 = fast)
-     */
     void setSpeechRate(float rate);
 
-    /**
-     * Sets the speech volume.
-     * @param volume Volume level (0.0 = silent, 1.0 = maximum)
-     */
     void setVolume(float volume);
 
-    /**
-     * Checks if TTS is currently speaking.
-     * @return true if speaking, false otherwise
-     */
     boolean isSpeaking();
 
-    /**
-     * Sets an error callback to be notified when synthesis or playback fails.
-     * @param callback The error callback, or null to remove
-     */
-    default void setErrorCallback(TTSErrorCallback callback) {
-        // Default implementation does nothing (for backward compatibility)
-    }
+    /** Default does nothing — exists for backward compatibility with implementations that predate this method. */
+    default void setErrorCallback(TTSErrorCallback callback) {}
 
-    /**
-     * Shuts down the TTS service and releases resources.
-     */
     void shutdown();
 
-    /**
-     * Callback interface for TTS errors.
-     */
     @FunctionalInterface
     interface TTSErrorCallback {
-        /**
-         * Called when a TTS error occurs.
-         * @param text The text that failed to synthesize (may be null)
-         * @param error The error that occurred
-         */
         void onError(String text, Throwable error);
     }
 }
