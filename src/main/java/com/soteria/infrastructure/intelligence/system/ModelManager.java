@@ -144,7 +144,12 @@ public class ModelManager {
     }
 
     public CompletableFuture<Path> downloadTriageModel() {
-        return CompletableFuture.completedFuture(getTriageModelPath());
+        Path target = getTriageModelPath();
+        if (isTriageModelReady()) {
+            return CompletableFuture.completedFuture(target);
+        }
+        // Descargar el modelo fallback público (CT-XLMR-SE Q4_K_M)
+        return downloader.downloadFile(TRIAGE_FALLBACK_URL, target);
     }
 
     public CompletableFuture<Path> downloadTTSModel() {

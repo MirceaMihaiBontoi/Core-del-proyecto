@@ -21,7 +21,9 @@ public final class ModelAssets {
     public static final String LLM_PRO_URL = "https://huggingface.co/unsloth/gemma-4-E4B-it-GGUF/resolve/main/gemma-4-E4B-it-Q8_0.gguf";
 
     // Triage (Intent) Model — Specialized crisis/emergency classifier (Local)
+    // Si no está disponible el modelo propio, se descarga CT-XLMR-SE-GGUF como fallback
     public static final String TRIAGE_MODEL_NAME = "soteria-triage-v1.gguf";
+    public static final String TRIAGE_FALLBACK_URL = "https://huggingface.co/mradermacher/CT-XLMR-SE-GGUF/resolve/main/CT-XLMR-SE.Q4_K_M.gguf";
 
     // TTS Model — Kokoro-82M for multilingual speech synthesis
     public static final String TTS_MODEL_NAME = "kokoro-multi-lang-v1_0";

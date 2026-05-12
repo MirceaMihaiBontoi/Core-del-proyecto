@@ -228,7 +228,7 @@
                     <mainClass>com.soteria.ui.MainApp</mainClass>
                     <options>
                         <option>--enable-native-access=javafx.graphics</option>
-                        <option>-Djava.library.path=${sherpa.library.path};${java.io.tmpdir}</option>
+                        <option>-Djava.library.path=${sherpa.library.path}${path.separator}${java.io.tmpdir}</option>
                         <option>-Djna.library.path=${sherpa.library.path}</option>
                         <option>--enable-native-access=ALL-UNNAMED</option>
                         <option>--add-modules</option>

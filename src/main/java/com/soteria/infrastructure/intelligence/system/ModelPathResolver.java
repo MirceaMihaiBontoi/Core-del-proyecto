@@ -50,27 +50,70 @@ public class ModelPathResolver {
     }
 
     public Path getBrainModelPath(SystemCapability.AIModelProfile profile) {
-        return modelBasePath.resolve(getBrainModelFileName(profile));
+        String fileName = getBrainModelFileName(profile);
+
+        // 1. ~/.soteria/models/<file>
+        Path userPath = modelBasePath.resolve(fileName);
+        if (Files.exists(userPath)) {
+            return userPath;
+        }
+
+        // 2. <repo root>/models/<file>  (útil en desarrollo / distribución local)
+        Path repoModels = Paths.get(System.getProperty("user.dir"), "models", fileName);
+        if (Files.exists(repoModels)) {
+            logger.log(Level.INFO, "Brain model found in repo models/: {0}", repoModels);
+            return repoModels;
+        }
+
+        // 3. No encontrado → devolver path en ~/.soteria/models/ para que el downloader descargue ahí
+        return userPath;
     }
 
     public Path getSTTModelPath() {
-        return modelBasePath.resolve(STT_MODEL_NAME);
+        return resolveModelPath(STT_MODEL_NAME, true);
     }
 
     public Path getVADModelPath() {
-        return modelBasePath.resolve(VAD_MODEL_NAME);
+        return resolveModelPath(VAD_MODEL_NAME, false);
     }
 
     public Path getKWSModelPath() {
-        return modelBasePath.resolve(KWS_MODEL_NAME);
+        return resolveModelPath(KWS_MODEL_NAME, true);
     }
 
     public Path getTriageModelPath() {
-        return modelBasePath.resolve(TRIAGE_MODEL_NAME);
+        return resolveModelPath(TRIAGE_MODEL_NAME, false);
     }
 
     public Path getTTSModelPath() {
-        return modelBasePath.resolve(TTS_MODEL_NAME);
+        return resolveModelPath(TTS_MODEL_NAME, true);
+    }
+
+    /**
+     * Busca un modelo en orden:
+     *   1. ~/.soteria/models/<name>
+     *   2. <repo>/models/<name>
+     *   3. Devuelve el path de ~/.soteria/models/ para que el downloader descargue ahí.
+     *
+     * @param name      nombre del fichero o directorio del modelo
+     * @param isDir     true si el modelo es un directorio (STT, TTS, KWS), false si es un fichero
+     */
+    private Path resolveModelPath(String name, boolean isDir) {
+        // 1. ~/.soteria/models/
+        Path userPath = modelBasePath.resolve(name);
+        if (isDir ? (Files.isDirectory(userPath)) : Files.exists(userPath)) {
+            return userPath;
+        }
+
+        // 2. <repo>/models/
+        Path repoPath = Paths.get(System.getProperty("user.dir"), "models", name);
+        if (isDir ? (Files.isDirectory(repoPath)) : Files.exists(repoPath)) {
+            logger.log(Level.INFO, "Model found in repo models/: {0}", repoPath);
+            return repoPath;
+        }
+
+        // 3. Fallback → ~/.soteria/models/ para descarga
+        return userPath;
     }
 
     public Path getEmbeddingModelPath() {
