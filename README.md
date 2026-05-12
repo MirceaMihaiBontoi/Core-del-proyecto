@@ -113,11 +113,13 @@ com.soteria.ui
 ### System Requirements
 - **Java Runtime**: JDK 25 or higher.
 - **Build Tool**: Apache Maven 3.9.x.
-- **Desktop**: Windows, macOS, Linux. **LLM**: Gemma 4 E4B GGUF (`unsloth/gemma-4-E4B-it-GGUF`); use a recent `jllama` native (`lib/`, see `lib/GEMMA4_JLLAMA.txt`).
+- **Desktop**: Windows, Linux. **LLM**: Gemma 4 E4B GGUF (`unsloth/gemma-4-E4B-it-GGUF`); use a recent `jllama` native (`lib/llama/`, see `lib/llama/BUILD.md`).
 - **Android**: GluonFX build pipeline + `libllama.so` compiled for `arm64-v8a` (Vulkan backend recommended).
 - **iOS**: planned as a separate native Swift app leveraging CoreML + llama.cpp Swift bindings; shares `medical_protocols.json` and data contracts with the Java core.
 
 ### Build Instructions
+
+#### Windows
 ```bash
 # Clean previous builds and compile sources
 mvn clean compile
@@ -125,6 +127,14 @@ mvn clean compile
 # Execute the application
 mvn javafx:run
 ```
+
+#### Linux
+```bash
+mvn clean compile -Plinux
+mvn javafx:run
+```
+
+**Note**: Linux users must ensure native libraries are present in `lib/` before building. See `INSTALL_LINUX.md` for detailed instructions.
 
 ### Testing and Verification
 The system includes an extensive suite of unit tests to verify domain logic and record integrity:

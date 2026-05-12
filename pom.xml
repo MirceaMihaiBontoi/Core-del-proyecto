@@ -71,7 +71,9 @@
         <dependency>
             <groupId>de.kherud</groupId>
             <artifactId>llama</artifactId>
-            <version>4.2.0</version>
+            <version>LOCAL</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/lib/llama/llama-LOCAL.jar</systemPath>
         </dependency>
 
 
@@ -119,15 +121,16 @@
             <version>1.27.1</version>
         </dependency>
 
+        <dependency>
+            <groupId>commons-io</groupId>
+            <artifactId>commons-io</artifactId>
+            <version>2.18.0</version>
+        </dependency>
+
         <!-- sherpa-onnx JNI (local) para TTS -->
         <dependency>
             <groupId>com.k2fsa.sherpa</groupId>
             <artifactId>sherpa-onnx</artifactId>
-            <version>1.13.0</version>
-        </dependency>
-        <dependency>
-            <groupId>com.k2fsa.sherpa</groupId>
-            <artifactId>sherpa-onnx-native-win-x64</artifactId>
             <version>1.13.0</version>
         </dependency>
         <dependency>
@@ -136,6 +139,49 @@
             <version>1.21.0</version>
         </dependency>
     </dependencies>
+
+    <profiles>
+        <!-- Windows Profile -->
+        <profile>
+            <id>windows</id>
+            <activation>
+                <os>
+                    <family>windows</family>
+                </os>
+            </activation>
+            <properties>
+                <sherpa.library.path>${project.basedir}\lib\sherpa-onnx\windows</sherpa.library.path>
+            </properties>
+            <dependencies>
+                <dependency>
+                    <groupId>com.k2fsa.sherpa</groupId>
+                    <artifactId>sherpa-onnx-native-win-x64</artifactId>
+                    <version>1.13.0</version>
+                </dependency>
+            </dependencies>
+        </profile>
+
+        <!-- Linux Profile -->
+        <profile>
+            <id>linux</id>
+            <activation>
+                <os>
+                    <family>unix</family>
+                    <name>Linux</name>
+                </os>
+            </activation>
+            <properties>
+                <sherpa.library.path>${project.basedir}/lib/sherpa-onnx/linux</sherpa.library.path>
+            </properties>
+            <dependencies>
+                <dependency>
+                    <groupId>com.k2fsa.sherpa</groupId>
+                    <artifactId>sherpa-onnx-native-linux-x64</artifactId>
+                    <version>1.13.0</version>
+                </dependency>
+            </dependencies>
+        </profile>
+    </profiles>
 
     <build>
         <plugins>
@@ -154,6 +200,25 @@
                 </configuration>
             </plugin>
 
+            <!-- Copiar dependencias a target/lib automáticamente -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <version>3.6.1</version>
+                <executions>
+                    <execution>
+                        <id>copy-dependencies</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>copy-dependencies</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>${project.build.directory}/lib</outputDirectory>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
             <!-- JavaFX Plugin -->
             <plugin>
                 <groupId>org.openjfx</groupId>
@@ -163,11 +228,13 @@
                     <mainClass>com.soteria.ui.MainApp</mainClass>
                     <options>
                         <option>--enable-native-access=javafx.graphics</option>
-                        <option>-Djava.library.path=${project.basedir}/lib/native;${java.io.tmpdir}</option>
+                        <option>-Djava.library.path=${sherpa.library.path};${java.io.tmpdir}</option>
+                        <option>-Djna.library.path=${sherpa.library.path}</option>
                         <option>--enable-native-access=ALL-UNNAMED</option>
                         <option>--add-modules</option>
                         <option>jdk.incubator.vector</option>
                     </options>
+                    <commandlineArgs>-Djava.library.path=${sherpa.library.path}</commandlineArgs>
                 </configuration>
             </plugin>
 

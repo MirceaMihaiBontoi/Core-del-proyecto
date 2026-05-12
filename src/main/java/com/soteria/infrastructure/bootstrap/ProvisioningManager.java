@@ -186,8 +186,13 @@ public class ProvisioningManager {
         if (service.wakeWordService() != null) {
             service.wakeWordService().shutdown();
         }
-        WakeWordService kws = new WakeWordService(service.modelManager().getKWSModelPath());
-        service.setWakeWordService(kws);
+        try {
+            WakeWordService kws = new WakeWordService(service.modelManager().getKWSModelPath());
+            service.setWakeWordService(kws);
+        } catch (Exception e) {
+            log.log(Level.WARNING,
+                    "KWS: Wake word service unavailable (no audio device?). Voice activation disabled.", e);
+        }
     }
 
     private void provisionBrainModel(BootstrapState state, BootstrapService service,

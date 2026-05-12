@@ -40,6 +40,11 @@ public final class DevicePhoneDetector {
         if (os.contains("win")) {
             return detectWindows();
         }
+        if (os.contains("linux")) {
+            // Linux desktops typically do not have telephony hardware.
+            // Return UNKNOWN without attempting detection.
+            return UNKNOWN;
+        }
         return UNKNOWN;
     }
 

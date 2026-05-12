@@ -49,34 +49,28 @@ public class LocalBrainService implements AutoCloseable, Brain {
 
     private void initializeModel() {
         int threads = capability.getIdealThreadCount();
+        String absolutePath = modelFile.toAbsolutePath().toString();
+        
         ModelParameters params = new ModelParameters()
-                .setModel(modelFile.toString())
+                .setModel(absolutePath)
                 .setCtxSize(4096)
                 .setThreads(threads)
                 .setThreadsBatch(threads)
-                .setGpuLayers(-1);
+                .setGpuLayers(0); // Force CPU mode to avoid WSL GPU initialization issues
 
         logger.info("================ AI ENGINE DASHBOARD ================");
         logger.log(Level.INFO, "  - MODEL:      {0}", modelFile.getFileName());
+        logger.log(Level.INFO, "  - ABS PATH:   {0}", absolutePath);
         logger.log(Level.INFO, "  - PROFILE:    {0}", capability.getRecommendedProfile());
         logger.log(Level.INFO, "  - THREADS:    {0}", threads);
         logger.info("  - GPU:        [OFF] (CPU Optimized)");
 
-        // Redirect stderr to hide native model loading noise
-        @SuppressWarnings("squid:S106")
-        PrintStream originalErr = System.err;
-        System.setErr(new PrintStream(new OutputStream() {
-            @Override public void write(int b) { /* silence */ }
-        }));
-
         try {
             this.model = new LlamaModel(params);
-            System.setErr(originalErr);
             logger.info("  STATUS: READY AND OPTIMIZED");
             logger.info("====================================================");
         } catch (Exception e) {
-            System.setErr(originalErr);
-            throw new AIEngineException("CRITICAL: Engine failed to load native library", e);
+            throw new AIEngineException("CRITICAL: Engine failed to load model", e);
         }
     }
 

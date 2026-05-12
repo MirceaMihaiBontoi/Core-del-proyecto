@@ -23,6 +23,13 @@ import java.util.List;
  */
 final class SherpaOnnxConfigurator {
 
+    // Static initializer to ensure native libraries are loaded before any Sherpa-ONNX usage
+    static {
+        System.out.println("[SherpaOnnxConfigurator] Ensuring native libraries are loaded...");
+        com.soteria.infrastructure.intelligence.system.NativeLibraryLoader.load();
+        System.out.println("[SherpaOnnxConfigurator] Native libraries ready");
+    }
+
     private SherpaOnnxConfigurator() {
     }
 

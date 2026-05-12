@@ -104,53 +104,77 @@ public class WakeWordService implements AutoCloseable {
 
     private void runKeywordDetectionLoop() {
         AudioFormat format = new AudioFormat(16000, 16, 1, true, false);
+        int retryCount = 0;
+        int maxRetries = 10;
 
-        try {
-            this.line = AudioUtils.getResilientMic(format);
-            this.line.start();
+        while (listening && retryCount < maxRetries) {
+            try {
+                this.line = AudioUtils.getResilientMic(format);
+                this.line.start();
+                retryCount = 0; // Reset on success
 
-            byte[] buffer = new byte[3200];
-            float[] floatBuffer = new float[buffer.length / 2];
+                byte[] buffer = new byte[3200];
+                float[] floatBuffer = new float[buffer.length / 2];
 
-            logger.info("KWS Service: Listening in background for 'SoterIA'...");
-            OnlineStream stream = spotter.createStream();
+                logger.info("KWS Service: Listening in background for 'SoterIA'...");
+                OnlineStream stream = spotter.createStream();
 
-            int loopCounter = 0;
-            while (listening) {
-                int bytesRead = line.read(buffer, 0, buffer.length);
-                if (bytesRead < 0) {
+                int loopCounter = 0;
+                while (listening) {
+                    int bytesRead = line.read(buffer, 0, buffer.length);
+                    if (bytesRead < 0) {
+                        break;
+                    }
+
+                    // Apply automatic gain control / normalization
+                    normalizer.normalize(buffer, bytesRead);
+
+                    float maxAmp = convertToFloat(buffer, bytesRead, floatBuffer);
+
+                    stream.acceptWaveform(floatBuffer, 16000);
+                    while (spotter.isReady(stream)) {
+                        spotter.decode(stream);
+                    }
+
+                    checkKeywordResult(stream);
+
+                    if (++loopCounter % 20 == 0) {
+                        logVoice(String.format("Monitor: [Gain: %.2fx] [MaxAmp: %.5f]",
+                            normalizer.getCurrentGain(), maxAmp));
+                    }
+                }
+
+                stream.release();
+                line.stop();
+                line.close();
+                logger.info("KWS Service: Stopped.");
+                break; // Clean exit
+
+            } catch (javax.sound.sampled.LineUnavailableException e) {
+                retryCount++;
+                long backoffMs = Math.min(1000L * (1L << retryCount), 30_000);
+                logger.log(Level.WARNING,
+                        "KWS: No audio device available (attempt {0}/{1}). Retrying in {2}s...",
+                        new Object[]{retryCount, maxRetries, backoffMs / 1000});
+                try {
+                    Thread.sleep(backoffMs);
+                } catch (InterruptedException _) {
+                    Thread.currentThread().interrupt();
                     break;
                 }
-
-                // Apply automatic gain control / normalization
-                normalizer.normalize(buffer, bytesRead);
-
-                float maxAmp = convertToFloat(buffer, bytesRead, floatBuffer);
-
-                stream.acceptWaveform(floatBuffer, 16000);
-                while (spotter.isReady(stream)) {
-                    spotter.decode(stream);
-                }
-
-                checkKeywordResult(stream);
-
-                if (++loopCounter % 20 == 0) {
-                    logVoice(String.format("Monitor: [Gain: %.2fx] [MaxAmp: %.5f]", 
-                        normalizer.getCurrentGain(), maxAmp));
-                }
+            } catch (Exception e) {
+                logger.log(Level.SEVERE, "Error in KWS audio loop", e);
+                break;
             }
-
-            stream.release();
-            line.stop();
-            line.close();
-            logger.info("KWS Service: Stopped.");
-
-        } catch (Exception e) {
-            logger.log(Level.SEVERE, "Error in KWS audio loop", e);
-        } finally {
-            listening = false;
-            shutdownLatch.countDown();
         }
+
+        if (retryCount >= maxRetries) {
+            logger.warning("KWS: Audio device not available after " + maxRetries
+                    + " attempts. Wake word detection disabled for this session.");
+        }
+
+        listening = false;
+        shutdownLatch.countDown();
     }
 
     private float convertToFloat(byte[] buffer, int bytesRead, float[] floatBuffer) {

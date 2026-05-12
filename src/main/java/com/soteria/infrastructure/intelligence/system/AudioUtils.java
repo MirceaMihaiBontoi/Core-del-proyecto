@@ -6,7 +6,7 @@ import java.util.logging.Logger;
 
 /**
  * Utility class for resilient audio acquisition.
- * Handles common Java Sound API issues on Windows and Linux.
+ * Handles common Java Sound API issues across all supported platforms.
  */
 public class AudioUtils {
     private static final Logger logger = Logger.getLogger(AudioUtils.class.getName());
@@ -20,21 +20,37 @@ public class AudioUtils {
      */
     public static TargetDataLine getResilientMic(AudioFormat format) throws LineUnavailableException {
         DataLine.Info info = new DataLine.Info(TargetDataLine.class, format);
-        
+
+        logAvailableMixers(info);
+
         // Strategy 0: Retry loop for busy lines
         TargetDataLine defaultLine = tryOpenDefaultLine(info, format);
         if (defaultLine != null) return defaultLine;
 
-        // Strategy 1: Targeted mixer search
+        // Strategy 1: Targeted mixer search (any mixer that supports the format)
         TargetDataLine mixerLine = searchInMixers(info, format);
         if (mixerLine != null) return mixerLine;
 
-        // Strategy 2: Fallback to "Primary Sound Capture" or similar
+        // Strategy 2: Fallback to well-known mixer names per platform
         TargetDataLine namedLine = searchInNamedMixers(info, format);
         if (namedLine != null) return namedLine;
 
-        throw new LineUnavailableException("No compatible microphone line found for " + format + 
-            ". Please ensure a recording device is enabled in Windows Sound settings.");
+        String platform = PlatformDetector.detectOS();
+        String hint = "windows".equals(platform)
+                ? "Please ensure a recording device is enabled in Sound settings."
+                : "Please ensure PulseAudio/PipeWire is running and a capture device is available (pactl list sources).";
+
+        throw new LineUnavailableException("No compatible microphone line found for " + format + ". " + hint);
+    }
+
+    private static void logAvailableMixers(DataLine.Info info) {
+        Mixer.Info[] mixers = AudioSystem.getMixerInfo();
+        logger.log(Level.INFO, "Available audio mixers ({0} total):", mixers.length);
+        for (Mixer.Info mi : mixers) {
+            boolean supported = AudioSystem.getMixer(mi).isLineSupported(info);
+            logger.log(Level.INFO, "  Mixer: {0} [{1}] - supported: {2}",
+                    new Object[]{mi.getName(), mi.getDescription(), supported});
+        }
     }
 
     private static TargetDataLine tryOpenDefaultLine(DataLine.Info info, AudioFormat format) throws LineUnavailableException {
@@ -69,7 +85,7 @@ public class AudioUtils {
                     return line;
                 }
             } catch (Exception e) {
-                logger.log(Level.FINE, "Could not open line from validated mixer {0}: {1}", 
+                logger.log(Level.FINE, "Could not open line from validated mixer {0}: {1}",
                     new Object[]{mixerInfo.getName(), e.getMessage()});
             }
         }
@@ -79,7 +95,11 @@ public class AudioUtils {
     private static TargetDataLine searchInNamedMixers(DataLine.Info info, AudioFormat format) {
         for (Mixer.Info mixerInfo : AudioSystem.getMixerInfo()) {
             String name = mixerInfo.getName().toLowerCase();
-            if (name.contains("capture") || name.contains("microphone") || name.contains("primary")) {
+            // Cross-platform: Windows uses "capture"/"microphone"/"primary",
+            // Linux uses "default"/"pulse"/"hw:"/"plughw:"/"dmix"
+            if (name.contains("capture") || name.contains("microphone") || name.contains("primary")
+                    || name.contains("default") || name.contains("pulse")
+                    || name.startsWith("hw:") || name.startsWith("plughw:")) {
                 try {
                     Mixer mixer = AudioSystem.getMixer(mixerInfo);
                     TargetDataLine line = (TargetDataLine) mixer.getLine(info);

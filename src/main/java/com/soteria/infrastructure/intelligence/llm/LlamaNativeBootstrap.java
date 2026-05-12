@@ -30,7 +30,7 @@ public final class LlamaNativeBootstrap {
         if (existing != null && !existing.isBlank()) {
             return;
         }
-        Path libDir = Path.of(System.getProperty("user.dir", "."), "lib").toAbsolutePath().normalize();
+        Path libDir = Path.of(System.getProperty("user.dir", "."), "lib", "llama").toAbsolutePath().normalize();
         if (!Files.isDirectory(libDir)) {
             return;
         }
@@ -39,7 +39,7 @@ public final class LlamaNativeBootstrap {
             return;
         }
         System.setProperty(LIB_PATH_PROPERTY, libDir.toString());
-        log.log(Level.CONFIG, () -> "Using jllama native from " + libDir + " (fork build; see GEMMA4_JLLAMA.txt)");
+        log.log(Level.CONFIG, () -> "Using jllama native from " + libDir + " (fork build; see lib/llama/BUILD.md)");
     }
 
     private static String nativeLibraryFileName() {

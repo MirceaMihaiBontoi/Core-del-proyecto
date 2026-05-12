@@ -59,6 +59,11 @@ public class BootstrapService {
     public void preInitialize() {
         try {
             log.info("Starting pre-initialization...");
+            
+            // Configure native library paths before any native library usage
+            com.soteria.infrastructure.intelligence.system.NativeLibraryLoader.load();
+            log.info("Native library paths configured successfully");
+            
             localizationService = new ResourceLocalizationService();
             state.update(localizationService.getMessage("onboarding.bootstrap.detecting_hardware"), 0.10);
             capability = new SystemCapability();

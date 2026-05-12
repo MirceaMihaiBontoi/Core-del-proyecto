@@ -30,8 +30,7 @@ public record UserData(
 
     public boolean isComplete() {
         return fullName != null && !fullName.equals(INCOMPLETE_NAME) 
-                && phoneNumber != null && !phoneNumber.isBlank()
-                && medicalInfo != null && !medicalInfo.isBlank();
+                && emergencyContact != null && !emergencyContact.isBlank();
     }
 
     @Override
