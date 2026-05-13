@@ -121,9 +121,6 @@ public class AudioPreProcessor {
         prevOutput = 0.0f;
     }
     
-    /**
-     * Calculates RMS (Root Mean Square) energy of a frame.
-     */
     private float calculateRMS(float[] samples) {
         double sum = 0.0;
         for (float sample : samples) {
@@ -132,9 +129,6 @@ public class AudioPreProcessor {
         return (float) Math.sqrt(sum / samples.length);
     }
     
-    /**
-     * Converts dBFS to linear amplitude.
-     */
     private static float dbToLinear(float db) {
         return (float) Math.pow(10.0, db / 20.0);
     }

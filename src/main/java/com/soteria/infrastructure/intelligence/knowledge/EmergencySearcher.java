@@ -23,9 +23,12 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Handles the search logic, focusing on pure semantic retrieval
- * with knowledge graph enrichment and centroid-based centering.
- * Restored advanced scoring and enrichment logic.
+ * Hybrid Retrieval-Augmented Generation (RAG) search engine.
+ * 
+ * <p>Executes semantic searches against the Lucene vector index and subsequently
+ * enriches the results using the {@link KnowledgeGraphManager}. It employs strict
+ * scoring thresholds to filter out irrelevant matches and uses graph adjacency
+ * to promote or inject semantically weak but logically related protocols.</p>
  */
 public class EmergencySearcher {
     private static final Logger logger = Logger.getLogger(EmergencySearcher.class.getName());
@@ -52,6 +55,19 @@ public class EmergencySearcher {
         this.graphManager = graphManager;
     }
 
+    /**
+     * Executes a semantic search for the given query.
+     *
+     * <p>Results are scored and thresholded: matches >= 0.30 are marked {@code SEMANTIC},
+     * and >= 0.20 as {@code CANDIDATE}. If any {@code SEMANTIC} anchors are found,
+     * the knowledge graph is queried: {@code CANDIDATE}s connected to anchors are
+     * promoted to {@code GRAPH_BOOSTED} (others are dropped), and direct neighbors
+     * of the top anchor are injected as {@code GRAPH_NEIGHBOR}.</p>
+     * 
+     * @param rejectedIds IDs to explicitly exclude from the search results
+     * @param searchPrinciplesOnly if true, restricts search to protocols categorized as "Principle"
+     * @return a thresholded and graph-enriched list of protocol matches
+     */
     public List<KnowledgeBase.ProtocolMatch> search(String queryText, Set<String> rejectedIds, boolean searchPrinciplesOnly) {
         if (queryText == null || queryText.trim().isEmpty()) {
             return new ArrayList<>();

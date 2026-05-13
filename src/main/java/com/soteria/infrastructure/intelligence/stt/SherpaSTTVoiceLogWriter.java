@@ -19,6 +19,7 @@ import java.util.logging.Logger;
  */
 final class SherpaSTTVoiceLogWriter {
 
+    @SuppressWarnings("java:S3416") // Intentional: shares SherpaSTTService logger for unified package-level filter config
     private static final Logger logger = Logger.getLogger(SherpaSTTService.class.getName());
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm:ss");
     private static final String VOICE_LOG_DIR = "logs/voice";
@@ -55,5 +56,9 @@ final class SherpaSTTVoiceLogWriter {
         } catch (Exception e) {
             logger.log(Level.FINE, "Failed to write STT log", e);
         }
+    }
+
+    void info(String message) {
+        logVoice("INFO | " + message);
     }
 }

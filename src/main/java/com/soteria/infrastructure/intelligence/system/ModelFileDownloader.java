@@ -20,8 +20,12 @@ import java.util.logging.Logger;
 import static com.soteria.infrastructure.intelligence.system.ModelAssets.*;
 
 /**
- * Handles network-bound download logic for AI models.
- * Implements HTTP Range-based downloads to allow resuming interrupted transfers.
+ * Handles network-bound download logic for AI models via HTTP.
+ * <p>
+ * Implements HTTP {@code Range} headers to allow resuming interrupted transfers,
+ * and uses an atomic move operation upon completion to prevent the system from
+ * loading corrupted or partial model files.
+ * </p>
  */
 public class ModelFileDownloader {
     private static final Logger logger = Logger.getLogger(ModelFileDownloader.class.getName());

@@ -11,8 +11,12 @@ import java.util.Locale;
 import java.util.logging.Logger;
 
 /**
- * Manages the knowledge graph of protocols and their relationships.
- * Restored to original logic from EmergencyKnowledgeBase.old.java.
+ * Manages an unweighted, undirected knowledge graph of protocols using JGraphT.
+ * 
+ * <p>Edges are drawn between protocols that share a category or explicitly
+ * cross-reference each other (where one protocol's steps mention the other's title).
+ * This structural adjacency is used by the RAG searcher to rescue semantically
+ * weak matches.</p>
  */
 public class KnowledgeGraphManager {
     private static final Logger logger = Logger.getLogger(KnowledgeGraphManager.class.getName());
@@ -24,6 +28,12 @@ public class KnowledgeGraphManager {
         this.registry = registry;
     }
 
+    /**
+     * Rebuilds the graph from the current registry.
+     * <p>Edges are created based on category matches and title cross-references.
+     * Cross-reference matching uses Unicode-aware length checks to correctly handle
+     * CJK languages where single characters carry full semantic meaning.</p>
+     */
     public void buildKnowledgeGraph() {
         List<Protocol> protocols = registry.getProtocols();
         protocols.forEach(p -> graph.addVertex(p.getId()));

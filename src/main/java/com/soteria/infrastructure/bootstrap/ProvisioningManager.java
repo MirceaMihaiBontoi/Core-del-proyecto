@@ -17,11 +17,24 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Manages the background execution of the provisioning process, including model downloads
- * and service initialization. This class ensures that provisioning happens sequentially
- * and can be safely interrupted.
+ * Executes the provisioning sequence on a background daemon thread.
+ *
+ * <p>Provisioning runs in a fixed order — STT → KWS → Brain model download →
+ * Triage → TTS → Knowledge Base wiring → Brain init + warmup — so that each
+ * step can be timed independently and the sequence can be interrupted cleanly
+ * between steps. Each step checks {@link Thread#isInterrupted()} before
+ * starting, so a profile change during onboarding cancels the in-flight run
+ * without leaving partially-initialized services behind.</p>
+ *
+ * <p>Repeated calls with the same profile/language key are deduplicated: if
+ * provisioning is already running or has completed successfully, the call is
+ * a no-op.</p>
+ *
+ * @see BootstrapService
+ * @see BootstrapState
  */
 public class ProvisioningManager {
+
     private static final Logger log = Logger.getLogger(ProvisioningManager.class.getName());
 
     private static String loc(BootstrapService service, String key) {
@@ -38,6 +51,19 @@ public class ProvisioningManager {
     private Thread activeProvisioner;
     private CompletableFuture<?> activeDownload;
 
+    /**
+     * Starts a provisioning run for the given profile and language, cancelling
+     * any in-flight run first.
+     *
+     * <p>Idempotent when called with the same {@code profile}/{@code language}
+     * combination and the previous run is still alive or has already completed
+     * successfully.</p>
+     *
+     * @param state    mutable UI state to update during provisioning
+     * @param service  bootstrap facade used to access sub-services
+     * @param profile  LLM profile to provision
+     * @param language display-name of the target language
+     */
     public synchronized void start(BootstrapState state, BootstrapService service,
                                    SystemCapability.AIModelProfile profile, String language) {
 
@@ -55,12 +81,13 @@ public class ProvisioningManager {
 
         cancelActiveTasks();
 
-        // If we change the goal, we are no longer ready
+        // Changing the goal means we are no longer ready.
         state.setReadyToChat(false);
         state.resetReadyFuture();
 
         lastProvisioningKey = key;
-        activeProvisioner = new Thread(() -> runProvisioning(state, service, profile, language), "soteria-provisioner");
+        activeProvisioner = new Thread(
+                () -> runProvisioning(state, service, profile, language), "soteria-provisioner");
         activeProvisioner.setDaemon(true);
         activeProvisioner.start();
     }
@@ -72,49 +99,50 @@ public class ProvisioningManager {
             log.info("Starting provisioning sequence...");
 
             if (isInterrupted()) return;
-            long stepStart = System.nanoTime();
+            long sttStart = System.nanoTime();
             provisionSTT(state, service, language);
-            long sttMs = (System.nanoTime() - stepStart) / 1_000_000;
-            log.info(() -> String.format("[TIMING] STT provision: %d ms", sttMs));
+            long sttDuration = (System.nanoTime() - sttStart) / 1_000_000;
+            log.info(() -> String.format("[TIMING] STT provision: %d ms", sttDuration));
 
             if (isInterrupted()) return;
-            stepStart = System.nanoTime();
+            long kwsStart = System.nanoTime();
             provisionKWSModel(state, service);
-            long kwsMs = (System.nanoTime() - stepStart) / 1_000_000;
-            log.info(() -> String.format("[TIMING] KWS provision: %d ms", kwsMs));
+            long kwsDuration = (System.nanoTime() - kwsStart) / 1_000_000;
+            log.info(() -> String.format("[TIMING] KWS provision: %d ms", kwsDuration));
 
             if (isInterrupted()) return;
-            stepStart = System.nanoTime();
+            long brainStart = System.nanoTime();
             provisionBrainModel(state, service, profile);
-            long brainDlMs = (System.nanoTime() - stepStart) / 1_000_000;
-            log.info(() -> String.format("[TIMING] Brain model download/check: %d ms", brainDlMs));
+            long brainDuration = (System.nanoTime() - brainStart) / 1_000_000;
+            log.info(() -> String.format("[TIMING] Brain model download/check: %d ms", brainDuration));
 
             if (isInterrupted()) return;
-            stepStart = System.nanoTime();
+            long triageStart = System.nanoTime();
             provisionTriageModel(state, service);
-            long triageMs = (System.nanoTime() - stepStart) / 1_000_000;
-            log.info(() -> String.format("[TIMING] Triage provision: %d ms", triageMs));
+            long triageDuration = (System.nanoTime() - triageStart) / 1_000_000;
+            log.info(() -> String.format("[TIMING] Triage provision: %d ms", triageDuration));
 
             if (isInterrupted()) return;
-            stepStart = System.nanoTime();
+            long ttsStart = System.nanoTime();
             provisionTTSModel(state, service, language);
-            long ttsMs = (System.nanoTime() - stepStart) / 1_000_000;
-            log.info(() -> String.format("[TIMING] TTS provision: %d ms", ttsMs));
+            long ttsDuration = (System.nanoTime() - ttsStart) / 1_000_000;
+            log.info(() -> String.format("[TIMING] TTS provision: %d ms", ttsDuration));
 
             if (isInterrupted()) return;
-            stepStart = System.nanoTime();
+            long kbStart = System.nanoTime();
             provisionKnowledgeBase(state, service);
-            long kbMs = (System.nanoTime() - stepStart) / 1_000_000;
-            log.info(() -> String.format("[TIMING] Knowledge Base provision: %d ms", kbMs));
+            long kbDuration = (System.nanoTime() - kbStart) / 1_000_000;
+            log.info(() -> String.format("[TIMING] Knowledge Base provision: %d ms", kbDuration));
 
             if (isInterrupted()) return;
-            stepStart = System.nanoTime();
+            long initStart = System.nanoTime();
             initBrainService(state, service, profile, language);
-            long brainInitMs = (System.nanoTime() - stepStart) / 1_000_000;
-            log.info(() -> String.format("[TIMING] Brain init + warmup: %d ms", brainInitMs));
+            long initDuration = (System.nanoTime() - initStart) / 1_000_000;
+            log.info(() -> String.format("[TIMING] Brain init + warmup: %d ms", initDuration));
 
             long totalMs = (System.nanoTime() - totalStart) / 1_000_000;
-            log.info(() -> String.format("[TIMING] ======= TOTAL PROVISIONING: %d ms (%.1f s) =======", totalMs, totalMs / 1000.0));
+            log.info(() -> String.format("[TIMING] ======= TOTAL PROVISIONING: %d ms (%.1f s) =======",
+                    totalMs, totalMs / 1000.0));
 
             state.signalProvisioningComplete(loc(service, "onboarding.provision.ready"));
             state.completeReadyFuture();
@@ -122,7 +150,6 @@ public class ProvisioningManager {
             log.log(Level.SEVERE, "Provisioning failed during runProvisioning", e);
             handleProvisioningError(state, service, e);
         } finally {
-
             cleanupActiveProvisioner();
         }
     }
@@ -167,7 +194,8 @@ public class ProvisioningManager {
         if (service.sttServiceImpl() != null) {
             service.sttServiceImpl().shutdown();
         }
-        SherpaSTTService stt = new SherpaSTTService(service.modelManager().getSTTModelPath(), language, service.modelManager());
+        SherpaSTTService stt = new SherpaSTTService(
+                service.modelManager().getSTTModelPath(), language, service.modelManager());
         service.setSttService(stt);
     }
 
@@ -190,6 +218,7 @@ public class ProvisioningManager {
             WakeWordService kws = new WakeWordService(service.modelManager().getKWSModelPath());
             service.setWakeWordService(kws);
         } catch (Exception e) {
+            // Non-fatal: voice activation is disabled when no audio device is present.
             log.log(Level.WARNING,
                     "KWS: Wake word service unavailable (no audio device?). Voice activation disabled.", e);
         }
@@ -207,6 +236,14 @@ public class ProvisioningManager {
         }
     }
 
+    /**
+     * Wires the triage embedder into the knowledge base and feeds the protocol
+     * centroid back to the triage service.
+     *
+     * <p>Must run after both {@link #provisionTriageModel} and the knowledge base
+     * are initialized so that semantic search uses the same embedding space as
+     * the classifier.</p>
+     */
     private void provisionKnowledgeBase(BootstrapState state, BootstrapService service) {
         state.update(loc(service, "onboarding.provision.kb_optimizing"), 0.65);
         if (service.triageServiceImpl() != null) {
@@ -258,7 +295,8 @@ public class ProvisioningManager {
         if (service.brainServiceImpl() != null) {
             service.brainServiceImpl().close();
         }
-        LocalBrainService brain = new LocalBrainService(service.modelManager().getBrainModelPath(profile), service.capability());
+        LocalBrainService brain = new LocalBrainService(
+                service.modelManager().getBrainModelPath(profile), service.capability());
         service.setBrainService(brain);
 
         if (isInterrupted()) return;
@@ -267,15 +305,23 @@ public class ProvisioningManager {
         warmUpBrain(service, language);
     }
 
+    /**
+     * Sends a silent warmup turn to the LLM so the KV cache holds the system
+     * prompt before the user's first real message.
+     *
+     * <p>Failures are non-fatal: the first real response will be slightly slower
+     * but the system remains fully functional.</p>
+     */
     private void warmUpBrain(BootstrapService service, String language) {
         try {
             List<ChatMessage> primer = List.of(ChatMessage.user("SYSTEM_TEST_START_WARMUP"));
-            service.brainServiceImpl().generateResponse(primer, "Warmup — no real protocol needed.", language, null,
+            service.brainServiceImpl().generateResponse(
+                    primer, "Warmup — no real protocol needed.", language, null,
                     new InferenceListener() {
-                        @Override public void onToken(String t) { /* Silent warmup — tokens are not used */ }
-                        @Override public void onAnalysisComplete(String id, String s) { /* Silent warmup — analysis is not used */ }
-                        @Override public void onComplete(String f) { /* Silent warmup completion */ }
-                        @Override public void onError(Throwable e) { /* Warmup errors are non-fatal */ }
+                        @Override public void onToken(String t) { /* silent warmup */ }
+                        @Override public void onAnalysisComplete(String id, String s) { /* silent warmup */ }
+                        @Override public void onComplete(String f) { /* silent warmup */ }
+                        @Override public void onError(Throwable e) { /* non-fatal */ }
                     });
         } catch (Exception e) {
             log.log(Level.WARNING, "Warmup turn failed (non-fatal)", e);
@@ -283,11 +329,12 @@ public class ProvisioningManager {
     }
 
     private void handleProvisioningError(BootstrapState state, BootstrapService service, Exception e) {
-        if (isInterrupted() || e instanceof InterruptedException || e.getCause() instanceof InterruptedException) {
+        if (isInterrupted() || e instanceof InterruptedException
+                || e.getCause() instanceof InterruptedException) {
             log.info("Provisioning task aborted cleanly.");
             return;
         }
-        
+
         String errorMsg = e.getMessage();
         if (errorMsg == null && e.getCause() != null) errorMsg = e.getCause().getMessage();
         if (errorMsg == null) errorMsg = e.getClass().getSimpleName();
@@ -303,6 +350,13 @@ public class ProvisioningManager {
         }
     }
 
+    /**
+     * Interrupts any in-flight provisioning thread and cancels the active
+     * model download.
+     *
+     * <p>Called by {@link BootstrapService#shutdown()} as part of the
+     * application teardown sequence.</p>
+     */
     public void shutdown() {
         if (activeProvisioner != null && activeProvisioner.isAlive()) {
             activeProvisioner.interrupt();

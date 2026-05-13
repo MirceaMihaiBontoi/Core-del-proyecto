@@ -10,9 +10,12 @@ import java.util.logging.Logger;
 import static com.soteria.infrastructure.intelligence.system.ModelAssets.*;
 
 /**
- * Facade for AI model management.
- * Delegates specialized tasks to focused components while maintaining 
- * backward compatibility for the rest of the system.
+ * Facade for AI model management and provisioning.
+ * <p>
+ * Orchestrates path resolution, downloading, and extraction through an asynchronous
+ * {@link java.util.concurrent.CompletableFuture} API, abstracting the complex provisioning
+ * pipeline from the rest of the application.
+ * </p>
  */
 public class ModelManager {
     private static final Logger logger = Logger.getLogger(ModelManager.class.getName());

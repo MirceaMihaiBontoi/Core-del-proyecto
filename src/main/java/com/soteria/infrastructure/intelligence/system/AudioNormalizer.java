@@ -16,9 +16,14 @@ public class AudioNormalizer {
     private double smoothedGain = 1.0;
 
     /**
-     * Normalizes the audio frame in-place or returns a new one.
-     * @param frame The raw PCM16LE bytes
-     * @param length The number of bytes to process
+     * Applies automatic gain control (AGC) to ensure the audio stream remains
+     * within an optimal decibel range for speech recognition models.
+     * <p>
+     * The input frame is modified in-place to avoid buffer allocation overhead
+     * during real-time streaming.
+     *
+     * @param frame raw PCM16LE audio bytes to be amplified or attenuated
+     * @param length the number of valid bytes in the buffer; must be an even number
      */
     public void normalize(byte[] frame, int length) {
         if (frame == null || length < 2) return;

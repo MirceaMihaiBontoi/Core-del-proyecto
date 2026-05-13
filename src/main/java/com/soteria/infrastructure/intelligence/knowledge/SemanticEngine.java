@@ -13,7 +13,11 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Handles the semantic embedding logic and Llama model integration.
+ * Wrapper for the native {@link LlamaModel} that handles dense vector generation.
+ * 
+ * <p>Configures the model for CPU-only embedding generation, adapting thread counts
+ * to the underlying hardware. Additionally manages the calculation, persistence,
+ * and loading of the global geometric centroid used for mean-centering.</p>
  */
 public class SemanticEngine implements AutoCloseable {
     private static final Logger logger = Logger.getLogger(SemanticEngine.class.getName());
@@ -117,6 +121,14 @@ public class SemanticEngine implements AutoCloseable {
         }
     }
 
+    /**
+     * Loads the global centroid from the binary sidecar file.
+     * <p>Performs sanity checks on the header to prevent {@link OutOfMemoryError}
+     * or {@link NegativeArraySizeException} if the file is corrupted. If corrupted,
+     * the file is deleted and mean-centering is disabled for the session.</p>
+     * 
+     * @return true if successfully loaded, false otherwise
+     */
     public boolean loadCentroid() {
         Path cPath = indexPath.resolve("centroid.bin");
         if (!Files.exists(cPath)) {

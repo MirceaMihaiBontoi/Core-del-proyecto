@@ -10,7 +10,13 @@ import jdk.incubator.vector.VectorOperators;
 import jdk.incubator.vector.VectorSpecies;
 
 /**
- * Utility class for vector operations and text processing.
+ * SIMD-accelerated math primitives for embedding operations and multilingual text
+ * tokenization, shared by the RAG indexing pipeline and the triage classifier.
+ *
+ * <p>All vector methods exploit the JDK Vector API ({@code jdk.incubator.vector})
+ * using {@code SPECIES_PREFERRED} so the JVM selects the widest instruction set
+ * available at runtime (AVX-512, AVX2, NEON, …). A scalar tail loop handles
+ * dimensions that do not fill a full SIMD lane.</p>
  */
 public class VectorMath {
     private VectorMath() {
@@ -23,6 +29,11 @@ public class VectorMath {
         return (float) Math.sqrt(dotProduct(v, v));
     }
 
+    /**
+     * Returns a unit vector in the same direction as {@code v}.
+     * If the magnitude is below {@code 1e-9} (effectively zero), returns a near-zero
+     * vector with a tiny epsilon at index 0 rather than dividing by zero.
+     */
     public static float[] normalize(float[] v) {
         float mag = magnitude(v);
         if (mag < 1e-9f) {
@@ -77,6 +88,10 @@ public class VectorMath {
         return res;
     }
 
+    /**
+     * Returns the cosine similarity in {@code [-1, 1]}.
+     * Returns {@code 0.0} if either vector has zero magnitude to avoid division by zero.
+     */
     public static float cosineSimilarity(float[] v1, float[] v2) {
         float dot = dotProduct(v1, v2);
         float mag1 = magnitude(v1);
@@ -85,6 +100,10 @@ public class VectorMath {
         return (mag > 1e-9) ? (dot / mag) : 0.0f;
     }
 
+    /**
+     * Returns the arithmetic mean vector of {@code vectors}.
+     * Returns an empty array if {@code vectors} is empty.
+     */
     public static float[] computeCentroid(List<float[]> vectors) {
         if (vectors.isEmpty()) return new float[0];
         int dims = vectors.get(0).length;
@@ -115,8 +134,14 @@ public class VectorMath {
     }
 
     /**
-     * Universal tokenization using BreakIterator to support >50 languages.
-     * Removes diacritics and converts to lowercase.
+     * Tokenizes {@code text} into a lowercase word set suitable for multilingual
+     * keyword matching. Returns an empty set for {@code null} input.
+     *
+     * <p>Diacritic stripping uses NFD decomposition but removes combining marks
+     * <em>only</em> when they follow a Latin base character, preserving scripts
+     * (Arabic, Devanagari, CJK, …) where combining marks are structurally required.
+     * Word boundaries are determined by {@link java.text.BreakIterator}, which
+     * correctly handles CJK text that has no whitespace delimiters.</p>
      */
     public static Set<String> tokenize(String text) {
         if (text == null) return new HashSet<>();

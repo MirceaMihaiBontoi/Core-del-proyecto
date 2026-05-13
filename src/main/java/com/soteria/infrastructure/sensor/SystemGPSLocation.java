@@ -5,10 +5,22 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Simulated implementation of LocationProvider.
- * In a real application, it would integrate with device GPS APIs.
+ * Best-effort implementation of {@link LocationProvider} for desktop environments.
+ *
+ * <p>Tries three strategies in order, stopping at the first that succeeds:
+ * <ol>
+ *   <li>Windows {@code GeoCoordinateWatcher} via a PowerShell subprocess</li>
+ *   <li>IP-based geolocation via {@code ip-api.com} (requires internet)</li>
+ *   <li>Hard-coded fallback to Madrid for Linux/Android simulation</li>
+ * </ol>
+ * The result is cached after the first successful call so subsequent reads
+ * are free.</p>
+ *
+ * <p>All callers must handle {@code "Unknown"} — location is best-effort and
+ * is used only to pre-select a language and to enrich emergency alerts.</p>
  */
 public class SystemGPSLocation implements LocationProvider {
+
     private static final Logger log = Logger.getLogger(SystemGPSLocation.class.getName());
     private static final String UNKNOWN = "Unknown";
 
@@ -24,7 +36,7 @@ public class SystemGPSLocation implements LocationProvider {
         if (os.contains("win")) {
             cachedCoordinates = getWindowsLocation();
         } else if (os.contains("android") || os.contains("linux")) {
-            // Android/Linux bridge - to be implemented with native jni or sidecar
+            // Android/Linux bridge — to be implemented with native JNI or sidecar.
             log.info("Mobile/Linux environment detected. Placeholder for native geolocator.");
             cachedCoordinates = "40.4168° N, 3.7038° W"; // Default to Madrid for simulation
         } else {
@@ -35,7 +47,7 @@ public class SystemGPSLocation implements LocationProvider {
     }
 
     private String getWindowsLocation() {
-        log.info("🛰️ Detecting location via Windows GeoCoordinateWatcher...");
+        log.info("Detecting location via Windows GeoCoordinateWatcher...");
         String psCommand = "Add-Type -AssemblyName System.Device; " +
                 "$w = New-Object System.Device.Location.GeoCoordinateWatcher; " +
                 "$w.Start(); $cnt = 0; " +
@@ -54,16 +66,15 @@ public class SystemGPSLocation implements LocationProvider {
                     return line.trim();
                 }
             }
-        } catch (Exception _) {
+        } catch (Exception e) {
             log.log(Level.WARNING, "GPS sensor failed, attempting IP-based fallback...");
         }
 
-        // IP Fallback
         return getIPLocation();
     }
 
     private String getIPLocation() {
-        log.info("🌐 GPS unavailable. Fetching location via IP...");
+        log.info("GPS unavailable. Fetching location via IP...");
         try {
             java.net.URL url = java.net.URI.create("http://ip-api.com/line/?fields=lat,lon").toURL();
             try (java.io.BufferedReader in = new java.io.BufferedReader(
@@ -71,7 +82,7 @@ public class SystemGPSLocation implements LocationProvider {
                 String lat = in.readLine();
                 String lon = in.readLine();
                 if (lat != null && lon != null) {
-                    hasPermission = true; // Technically we don't need "sensor" permission for IP
+                    hasPermission = true;
                     return lat.trim() + "," + lon.trim();
                 }
             }
@@ -82,7 +93,15 @@ public class SystemGPSLocation implements LocationProvider {
     }
 
     /**
-     * Guesses the primary language based on coordinates or system locale.
+     * Infers the most likely display language from the detected coordinates.
+     *
+     * <p>Falls back to the JVM default locale when coordinates are unavailable.
+     * Currently only maps Spain's geographic bounding box to Spanish; all other
+     * coordinates resolve to English. Extend the coordinate ranges here as
+     * more languages are added to the onboarding picker.</p>
+     *
+     * @return display-name language string compatible with the onboarding picker
+     *         (e.g. {@code "Spanish"}, {@code "English"})
      */
     public String detectPrimaryLanguage() {
         String coords = getCoordinates();
@@ -103,15 +122,15 @@ public class SystemGPSLocation implements LocationProvider {
             double lat = Double.parseDouble(parts[0]);
             double lon = Double.parseDouble(parts[1]);
 
-            // Geographic range for Spain (Mainland + Balearic: Lat 35-44, Lon -10 to 5)
-            // Plus Canary Islands: Lat 27-30, Lon -19 to -13
+            // Spain mainland: lat 35–44, lon -10 to 5
+            // Canary Islands:  lat 27–30, lon -19 to -13
             boolean isMainland = (lat >= 35.0 && lat <= 44.0 && lon >= -10.0 && lon <= 5.0);
             boolean isCanaries = (lat >= 27.0 && lat <= 30.0 && lon >= -19.0 && lon <= -13.0);
 
             if (isMainland || isCanaries) {
                 return "Spanish";
             }
-        } catch (Exception _) {
+        } catch (Exception e) {
             log.warning("Could not parse coordinates for language detection: " + coords);
         }
 
@@ -125,7 +144,7 @@ public class SystemGPSLocation implements LocationProvider {
 
     @Override
     public boolean requestPermission() {
-        log.info("📍 Requesting location permission...");
+        log.info("Requesting location permission...");
         this.hasPermission = true;
         return true;
     }

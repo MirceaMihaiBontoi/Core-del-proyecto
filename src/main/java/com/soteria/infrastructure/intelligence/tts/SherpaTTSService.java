@@ -12,31 +12,27 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * Text-to-Speech service using sherpa-onnx with Kokoro-82M model.
- * Modularized version delegating audio and model management.
- * 
- * <p>This service provides high-quality multilingual TTS with the following features:
- * <ul>
- *   <li>Asynchronous synthesis and playback using dedicated worker threads</li>
- *   <li>Queue-based processing with backpressure (max 100 utterances)</li>
- *   <li>Dynamic language switching with automatic engine rebuild</li>
- *   <li>Configurable speech rate and volume</li>
- *   <li>Audio enhancements: fade in/out, silence trimming, contextual pauses</li>
- *   <li>Thread-safe operations with native library synchronization</li>
- * </ul>
- * 
- * <p><strong>Thread Safety:</strong> This class is thread-safe. All public methods can be called
- * from any thread. Internal synchronization protects native library calls and state mutations.
- * 
- * <p><strong>Resource Management:</strong> Implements {@link AutoCloseable}. Always call
- * {@link #shutdown()} or use try-with-resources to properly release native resources.
- * 
- * <p><strong>Supported Languages:</strong> English (US/UK), Spanish, French, Italian, Portuguese,
- * Chinese (Mandarin), Japanese, Hindi. See {@link #FEMALE_VOICE_MAP} for speaker IDs.
- * 
- * @see TTS
+ * {@link TTS} implementation backed by Sherpa-ONNX and the Kokoro-82M model.
+ *
+ * <p>Synthesis is decoupled from playback via three daemon threads:
+ * {@code TTS-Synthesis} drains the utterance queue and calls the native engine,
+ * {@code TTS-BufferFlush} flushes the prosodic lookahead buffer on timeout,
+ * and {@code TTS-Playback} (owned by {@link TTSAudioPlayer}) writes PCM to the
+ * audio line.</p>
+ *
+ * <p>The prosodic lookahead buffer accumulates streaming LLM tokens until a
+ * sentence boundary is detected, then synthesizes the current chunk with the
+ * next {@value #LOOKAHEAD_WORDS} words appended as context. This gives Kokoro
+ * enough future text to plan intonation correctly. The generated audio is
+ * truncated to the actual chunk length before playback.</p>
+ *
+ * <p>{@link #ttsNativeLock} serializes all calls into the native Kokoro engine
+ * because {@code setLanguage} and {@code generate} share mutable engine state
+ * and are called from different threads.</p>
+ *
  * @see TTSModelManager
  * @see TTSAudioPlayer
+ * @see TtsTextSanitizer
  */
 public class SherpaTTSService implements TTS, AutoCloseable {
     private static final int SAMPLE_RATE = 24000;
@@ -44,83 +40,78 @@ public class SherpaTTSService implements TTS, AutoCloseable {
     private final TTSLogger ttsLogger;
     private final TTSModelManager modelManager;
     private final TTSAudioPlayer audioPlayer;
-    
+
     private float speechRate = 1.44f;
     private volatile String language = "en";
     private volatile int cachedSpeakerId = 0;
-    /** Serializes Kokoro native rebuild + generate (inference thread was calling setLanguage during worker generate). */
+    /** Serializes Kokoro native rebuild + generate — inference thread was calling setLanguage during worker generate. */
     private final Object ttsNativeLock = new Object();
     private volatile boolean muted = false;
     private volatile boolean running = false;
-    private volatile TTSErrorCallback errorCallback = null;
+    private final java.util.concurrent.atomic.AtomicReference<TTSErrorCallback> errorCallback = new java.util.concurrent.atomic.AtomicReference<>(null);
     private volatile boolean warmupComplete = false;
 
     private final LinkedBlockingQueue<QueuedUtterance> synthesisQueue = new LinkedBlockingQueue<>(100);
     private final AtomicInteger pendingSynthesis = new AtomicInteger(0);
     private final AtomicBoolean interruptRequested = new AtomicBoolean(false);
     private Thread synthesisThread;
-    
-    // Prosodic lookahead buffering for natural speech flow
-    private final StringBuilder sentenceBuffer = new StringBuilder();
-    private final StringBuilder lookaheadBuffer = new StringBuilder();  // Future context for prosody planning
-    private final Object bufferLock = new Object();
-    private volatile long lastBufferAddTime = 0;
-    private static final long BUFFER_FLUSH_TIMEOUT_MS = 100;  // Balance between latency and word completion
-    private static final int LOOKAHEAD_WORDS = 8;  // Number of future words to include for prosody planning (increased for better continuity)
 
+    private final ProsodicLookaheadBuffer prosodicBuffer = new ProsodicLookaheadBuffer();
+    private static final long BUFFER_FLUSH_TIMEOUT_MS = 100;
+    private static final String QUEUE_FULL_ERROR = "TTS queue full";
+    private static final int SILENCE_MS = 0;
+
+    /**
+     * Speaker IDs for the female voice in each supported language.
+     * The {@code zh} entry must not use sid 0 — the native ONNX engine crashes
+     * with that combination on Windows.
+     */
     private static final Map<String, Integer> FEMALE_VOICE_MAP = Map.of(
-            "en", 0, // af_bella
-            "es", 31, // ef_mariela (bundle-specific sid; matches downloaded kokoro-multi-lang-v1_0)
+            "en", 0,  // af_bella
+            "es", 31, // ef_mariela
             "ca", 31,
             "fr", 35, // ff_siwis
             "it", 37, // if_sarah
             "pt", 40, // pf_dora
-            "zh", 45 // zf_xiaobei — lang zh must not use sid 0; native ONNX has crashed with that combo on Windows
+            "zh", 45  // zf_xiaobei — sid 0 crashes ONNX on Windows with zh
     );
 
-    /**
-     * Constructs a TTS service with the specified model path and default English language.
-     * 
-     * @param modelPath Path to the Kokoro model directory containing model.onnx, voices.bin, etc.
-     * @throws IllegalStateException if model initialization fails
-     */
     public SherpaTTSService(Path modelPath) {
         this(modelPath, "en");
     }
 
     /**
-     * Constructs a TTS service with the specified model path and language.
-     * 
-     * <p>The service will:
-     * <ol>
-     *   <li>Initialize logging system</li>
-     *   <li>Load the Kokoro model for the specified language</li>
-     *   <li>Resolve the appropriate speaker ID for the language</li>
-     *   <li>Start synthesis and playback worker threads</li>
-     *   <li>Perform warmup synthesis to reduce first-utterance latency</li>
-     * </ol>
-     * 
-     * @param modelPath Path to the Kokoro model directory
-     * @param language Initial language (e.g., "en", "es", "zh")
-     * @throws IllegalStateException if model initialization fails
+     * Initializes the TTS engine for the given language and starts all worker threads.
+     *
+     * <p>A silent warmup synthesis runs in the background immediately after construction
+     * to pre-load the ONNX model weights into memory, reducing first-utterance latency.
+     * {@link #warmupComplete} becomes {@code true} when it finishes.</p>
+     *
+     * @param modelPath directory containing {@code model.onnx}, {@code voices.bin}, etc.
+     * @param language  initial language display name or ISO code (e.g. {@code "Spanish"}, {@code "es"})
+     * @throws IllegalStateException if the native Kokoro engine fails to initialize
      */
     public SherpaTTSService(Path modelPath, String language) {
         this.ttsLogger = new TTSLogger();
         this.ttsLogger.setup();
-        
+
         this.modelManager = new TTSModelManager(modelPath, ttsLogger, language);
         this.audioPlayer = new TTSAudioPlayer(ttsLogger);
         this.language = language;
         this.cachedSpeakerId = resolveSpeakerId(language);
-        
+
         startWorkerThreads();
     }
 
     private void startWorkerThreads() {
         running = true;
         audioPlayer.start();
+        startWarmupThread();
+        startBufferFlushThread();
+        startSynthesisThread();
+    }
 
-        // Start warmup in separate thread to not block synthesis queue processing
+    private void startWarmupThread() {
         Thread warmupThread = new Thread(() -> {
             try {
                 ttsLogger.info("TTS warmup...");
@@ -136,28 +127,17 @@ public class SherpaTTSService implements TTS, AutoCloseable {
         }, "TTS-Warmup");
         warmupThread.setDaemon(true);
         warmupThread.start();
+    }
 
-        // Buffer flush thread - flushes accumulated sentences after timeout
+    private void startBufferFlushThread() {
         Thread bufferFlushThread = new Thread(() -> {
             while (running) {
                 try {
                     Thread.sleep(100);
-                    synchronized (bufferLock) {
-                        if (lookaheadBuffer.length() > 0) {
-                            long timeSinceLastAdd = System.currentTimeMillis() - lastBufferAddTime;
-                            if (timeSinceLastAdd >= BUFFER_FLUSH_TIMEOUT_MS) {
-                                String bufferedText = lookaheadBuffer.toString().trim();
-                                lookaheadBuffer.setLength(0);
-                                
-                                if (!bufferedText.isEmpty()) {
-                                    int wordCount = bufferedText.split("\\s+").length;
-                                    pendingSynthesis.incrementAndGet();
-                                    if (!synthesisQueue.offer(new QueuedUtterance(bufferedText, this.language, wordCount))) {
-                                        ttsLogger.warn("TTS synthesis queue full during buffer flush");
-                                        pendingSynthesis.decrementAndGet();
-                                    }
-                                }
-                            }
+                    if (prosodicBuffer.getBufferLength() > 0) {
+                        long timeSinceLastAdd = System.currentTimeMillis() - prosodicBuffer.getLastAppendTime();
+                        if (timeSinceLastAdd >= BUFFER_FLUSH_TIMEOUT_MS) {
+                            prosodicBuffer.flush().ifPresent(chunk -> enqueueChunk(chunk, this.language));
                         }
                     }
                 } catch (InterruptedException _) {
@@ -168,18 +148,23 @@ public class SherpaTTSService implements TTS, AutoCloseable {
         }, "TTS-BufferFlush");
         bufferFlushThread.setDaemon(true);
         bufferFlushThread.start();
+    }
 
+    private void startSynthesisThread() {
         synthesisThread = new Thread(this::processSynthesisQueue, "TTS-Synthesis");
         synthesisThread.setDaemon(true);
         synthesisThread.start();
     }
 
-    /** Short phrase matching engine language + speaker; Latin warmup with lang zh/jp was crashing ONNX. */
+    /**
+     * Returns a short warmup phrase in the target language.
+     *
+     * <p>Latin-script phrases crash the ONNX engine when the loaded language is
+     * {@code zh} or {@code ja} — those languages require their native scripts.</p>
+     */
     private static String warmupPhrase(String uiLanguage) {
         String code = LanguageUtils.isoCode(uiLanguage);
-        if (code.isEmpty()) {
-            code = "en";
-        }
+        if (code.isEmpty()) code = "en";
         return switch (code) {
             case "zh" -> "你好";
             case "ja" -> "こんにちは";
@@ -214,35 +199,15 @@ public class SherpaTTSService implements TTS, AutoCloseable {
     private void synthesizeText(String text, String sanitizeLanguageHint, int actualWordCount) {
         try {
             String trimmedText = TtsTextSanitizer.sanitize(text, sanitizeLanguageHint);
-            if (trimmedText.isEmpty()) {
-                return;
-            }
-            
-            // Extract actual content (without lookahead) for audio truncation
-            String[] words = trimmedText.split("\\s+");
-            String actualContent = actualWordCount > 0 && actualWordCount < words.length
-                    ? String.join(" ", java.util.Arrays.copyOfRange(words, 0, actualWordCount))
-                    : trimmedText;
-            
+            if (trimmedText.isEmpty()) return;
+
+            String actualContent = extractActualContent(trimmedText, actualWordCount);
             float currentSpeechRate = calculateSpeechRate(actualContent);
 
-            GeneratedAudio audio;
-            synchronized (ttsNativeLock) {
-                modelManager.ensureEngineLanguage(this.language);
-                // Generate with full text (including lookahead) for prosody planning
-                audio = modelManager.generate(trimmedText, this.cachedSpeakerId, currentSpeechRate);
-            }
+            GeneratedAudio audio = generateAudioWithLock(trimmedText, currentSpeechRate);
 
             if (audio != null && audio.getSamples() != null && audio.getSamples().length > 0) {
-                // Truncate audio to match actual content (without lookahead)
-                float[] samples = audio.getSamples();
-                if (actualWordCount > 0 && actualWordCount < words.length) {
-                    // Estimate audio length for actual content
-                    float ratio = (float) actualContent.length() / trimmedText.length();
-                    int truncateLength = (int) (samples.length * ratio);
-                    samples = java.util.Arrays.copyOfRange(samples, 0, Math.min(truncateLength, samples.length));
-                }
-                
+                float[] samples = truncateAudioIfNeeded(audio.getSamples(), trimmedText, actualContent, actualWordCount);
                 processAndEnqueueAudio(samples, actualContent, currentSpeechRate);
             } else {
                 ttsLogger.warn("TTS: empty audio for: " + trimmedText);
@@ -256,7 +221,32 @@ public class SherpaTTSService implements TTS, AutoCloseable {
         }
     }
 
+    private String extractActualContent(String trimmedText, int actualWordCount) {
+        if (actualWordCount <= 0) return trimmedText;
+        String[] words = trimmedText.split("\\s+");
+        return actualWordCount < words.length
+                ? String.join(" ", java.util.Arrays.copyOfRange(words, 0, actualWordCount))
+                : trimmedText;
+    }
+
+    private GeneratedAudio generateAudioWithLock(String text, float rate) {
+        synchronized (ttsNativeLock) {
+            modelManager.ensureEngineLanguage(this.language);
+            return modelManager.generate(text, this.cachedSpeakerId, rate);
+        }
+    }
+
+    private float[] truncateAudioIfNeeded(float[] samples, String fullText, String actualContent, int actualWordCount) {
+        if (actualWordCount <= 0 || actualContent.length() >= fullText.length()) {
+            return samples;
+        }
+        float ratio = (float) actualContent.length() / fullText.length();
+        int truncateLength = (int) (samples.length * ratio);
+        return java.util.Arrays.copyOfRange(samples, 0, Math.min(truncateLength, samples.length));
+    }
+
     private float calculateSpeechRate(String trimmedText) {
+        // Slow down slightly for questions to match natural interrogative prosody
         if (trimmedText.endsWith("?") || trimmedText.endsWith("\uFF1F")) {
             return this.speechRate * 0.90f;
         }
@@ -267,30 +257,30 @@ public class SherpaTTSService implements TTS, AutoCloseable {
         float[] trimmedSamples = trimSilence(samples);
         if (trimmedSamples.length == 0) return;
 
-        byte[] pcm = audioPlayer.floatToPcm16(trimmedSamples);
-        audioPlayer.applyFadeIn(pcm);
-        audioPlayer.applyFadeOut(pcm);
-
+        byte[] pcm = applyAudioEffects(trimmedSamples);
         ttsLogger.logSynthesis(this.language, text, (trimmedSamples.length * 1000L) / SAMPLE_RATE, rate);
 
         if (!interruptRequested.get()) {
             audioPlayer.enqueue(pcm);
-            audioPlayer.enqueue(audioPlayer.generateSilence(calculateSilenceMs(text)));
+            audioPlayer.enqueue(audioPlayer.generateSilence(SILENCE_MS));
         }
     }
 
-    private int calculateSilenceMs(String text) {
-        // NO artificial pauses - Kokoro generates all natural pauses internally
-        // The delay between chunks comes from LLM token generation, not from TTS
-        return 0;
+    private byte[] applyAudioEffects(float[] samples) {
+        byte[] pcm = audioPlayer.floatToPcm16(samples);
+        audioPlayer.applyFadeIn(pcm);
+        audioPlayer.applyFadeOut(pcm);
+        return pcm;
     }
+
+
 
     private float[] trimSilence(float[] samples) {
         int start = 0;
         while (start < samples.length && Math.abs(samples[start]) < 0.012f) start++;
         int end = samples.length;
         while (end > start && Math.abs(samples[end - 1]) < 0.012f) end--;
-        
+
         if (start >= end) return new float[0];
         if (start == 0 && end == samples.length) return samples;
 
@@ -315,7 +305,7 @@ public class SherpaTTSService implements TTS, AutoCloseable {
         if (!synthesisQueue.offer(new QueuedUtterance(text, this.language, wordCount))) {
             ttsLogger.warn("TTS synthesis queue full, dropping utterance");
             pendingSynthesis.decrementAndGet();
-            notifyError(text, new IllegalStateException("TTS queue full"));
+            notifyError(text, new IllegalStateException(QUEUE_FULL_ERROR));
         }
     }
 
@@ -330,112 +320,25 @@ public class SherpaTTSService implements TTS, AutoCloseable {
         String hint = (sanitizeLanguageHint == null || sanitizeLanguageHint.isBlank())
                 ? this.language
                 : sanitizeLanguageHint;
-        
+
         long receiveTime = System.currentTimeMillis();
         ttsLogger.info(String.format("[SPEAKQUEUED] Received: \"%s\" at %d", text, receiveTime));
-        
-        // Prosodic lookahead buffering: accumulate text and use future context for natural prosody
-        synchronized (bufferLock) {
-            // Add new text to lookahead buffer
-            lookaheadBuffer.append(text);
-            if (!text.endsWith(" ")) {
-                lookaheadBuffer.append(" ");
-            }
-            lastBufferAddTime = System.currentTimeMillis();
-            
-            // Check if we have a prosodic boundary (major: .!? or minor: ,)
-            boolean hasMajorBoundary = text.matches(".*[.!?。！？]\\s*$");
-            boolean hasMinorBoundary = text.matches(".*[,，]\\s*$");
-            
-            if (hasMajorBoundary || hasMinorBoundary) {
-                String accumulated = lookaheadBuffer.toString();
-                int lastBoundaryIdx = hasMajorBoundary 
-                        ? findLastProsodyBoundary(accumulated)
-                        : findLastCommaBoundary(accumulated);
-                
-                if (lastBoundaryIdx > 0) {
-                    // Split at boundary: current chunk + lookahead
-                    String currentChunk = accumulated.substring(0, lastBoundaryIdx).trim();
-                    String remainingText = accumulated.substring(lastBoundaryIdx).trim();
-                    
-                    // Extract lookahead words (next 5 words after boundary)
-                    String[] remainingWords = remainingText.isEmpty() ? new String[0] : remainingText.split("\\s+");
-                    int lookaheadCount = Math.min(LOOKAHEAD_WORDS, remainingWords.length);
-                    String lookaheadContext = lookaheadCount > 0 
-                            ? String.join(" ", java.util.Arrays.copyOfRange(remainingWords, 0, lookaheadCount))
-                            : "";
-                    
-                    // Synthesize current chunk WITH lookahead context for prosody planning
-                    String textWithLookahead = lookaheadContext.isEmpty() 
-                            ? currentChunk 
-                            : currentChunk + " " + lookaheadContext;
-                    
-                    long queueTime = System.currentTimeMillis();
-                    ttsLogger.info(String.format("[QUEUE] Queuing: \"%s\" at %d (delay from receive: %dms)", 
-                            currentChunk, queueTime, queueTime - receiveTime));
-                    
-                    pendingSynthesis.incrementAndGet();
-                    if (!synthesisQueue.offer(new QueuedUtterance(textWithLookahead, hint, currentChunk.split("\\s+").length))) {
-                        ttsLogger.warn("TTS synthesis queue full, dropping utterance");
-                        pendingSynthesis.decrementAndGet();
-                        notifyError(currentChunk, new IllegalStateException("TTS queue full"));
-                    }
-                    
-                    // Keep remaining text in lookahead buffer
-                    lookaheadBuffer.setLength(0);
-                    if (!remainingText.isEmpty()) {
-                        lookaheadBuffer.append(remainingText).append(" ");
-                    }
-                }
-            }
-            
-            // Flush if buffer is getting too large (safety mechanism)
-            if (lookaheadBuffer.length() > 300) {
-                String bufferedText = lookaheadBuffer.toString().trim();
-                lookaheadBuffer.setLength(0);
-                
-                if (!bufferedText.isEmpty()) {
-                    pendingSynthesis.incrementAndGet();
-                    if (!synthesisQueue.offer(new QueuedUtterance(bufferedText, hint, bufferedText.split("\\s+").length))) {
-                        ttsLogger.warn("TTS synthesis queue full during buffer overflow");
-                        pendingSynthesis.decrementAndGet();
-                        notifyError(bufferedText, new IllegalStateException("TTS queue full"));
-                    }
-                }
-            }
-        }
+
+        prosodicBuffer.append(text).ifPresent(chunk -> {
+            long queueTime = System.currentTimeMillis();
+            ttsLogger.info(String.format("[QUEUE] Queuing chunk at %d (delay from receive: %dms)",
+                    queueTime, queueTime - receiveTime));
+            enqueueChunk(chunk, hint);
+        });
     }
-    
-    /**
-     * Finds the last prosodic boundary (sentence end) in the text.
-     * Returns the index after the boundary character, or -1 if not found.
-     */
-    private int findLastProsodyBoundary(String text) {
-        int lastIdx = -1;
-        for (int i = text.length() - 1; i >= 0; i--) {
-            char c = text.charAt(i);
-            if (c == '.' || c == '!' || c == '?' || c == '。' || c == '！' || c == '？') {
-                lastIdx = i + 1;
-                break;
-            }
+
+    private void enqueueChunk(ProsodicLookaheadBuffer.ChunkToSynthesize chunk, String languageHint) {
+        pendingSynthesis.incrementAndGet();
+        if (!synthesisQueue.offer(new QueuedUtterance(chunk.textWithLookahead(), languageHint, chunk.actualWordCount()))) {
+            ttsLogger.warn("TTS synthesis queue full, dropping utterance");
+            pendingSynthesis.decrementAndGet();
+            notifyError(chunk.textWithLookahead(), new IllegalStateException(QUEUE_FULL_ERROR));
         }
-        return lastIdx;
-    }
-    
-    /**
-     * Finds the last comma boundary in the text.
-     * Returns the index after the comma character, or -1 if not found.
-     */
-    private int findLastCommaBoundary(String text) {
-        int lastIdx = -1;
-        for (int i = text.length() - 1; i >= 0; i--) {
-            char c = text.charAt(i);
-            if (c == ',' || c == '，') {
-                lastIdx = i + 1;
-                break;
-            }
-        }
-        return lastIdx;
     }
 
     @Override
@@ -443,13 +346,7 @@ public class SherpaTTSService implements TTS, AutoCloseable {
         interruptRequested.set(true);
         synthesisQueue.clear();
         pendingSynthesis.set(0);
-        
-        // Clear all buffers
-        synchronized (bufferLock) {
-            sentenceBuffer.setLength(0);
-            lookaheadBuffer.setLength(0);
-        }
-        
+        prosodicBuffer.clear();
         audioPlayer.stop();
         interruptRequested.set(false);
     }
@@ -478,34 +375,22 @@ public class SherpaTTSService implements TTS, AutoCloseable {
         }
     }
 
-    /**
-     * Sets whether TTS output is muted.
-     * 
-     * <p>When muted, all synthesis and playback is stopped immediately.
-     * New synthesis requests are silently ignored until unmuted.
-     * 
-     * @param muted true to mute, false to unmute
-     */
     public void setMuted(boolean muted) {
         this.muted = muted;
         if (muted) stop();
     }
 
-    /**
-     * Checks if the TTS warmup phase has completed.
-     * @return true if warmup is complete, false otherwise
-     */
     public boolean isWarmupComplete() {
         return warmupComplete;
     }
 
     @Override
     public void setErrorCallback(TTSErrorCallback callback) {
-        this.errorCallback = callback;
+        this.errorCallback.set(callback);
     }
 
     private void notifyError(String text, Throwable error) {
-        TTSErrorCallback callback = this.errorCallback;
+        TTSErrorCallback callback = this.errorCallback.get();
         if (callback != null) {
             try {
                 callback.onError(text, error);

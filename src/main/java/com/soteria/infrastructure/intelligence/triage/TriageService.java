@@ -19,21 +19,29 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * High-performance triage service for intent classification.
- * Uses a Small Language Model to dynamically classify messages based on
- * protocol candidates.
- * NO HARDCODED LANGUAGE - NO CATEGORY ANCHORS.
+ * Intent classifier for the triage pipeline. Uses a local GGUF model (llama.cpp, embedding mode)
+ * to represent input text and protocol candidates as dense vectors, then selects the best match
+ * by cosine similarity.
+ *
+ * <p>The preferred call flow is RAG-first: RAG retrieves a pre-filtered candidate list, which
+ * {@link #classifyDynamic} then ranks. {@link #classify} (full protocol list) is a fallback.</p>
+ *
+ * <p>Protocol embeddings are computed once and cached. When a {@linkplain #setCentroid centroid}
+ * is configured, all vectors are mean-centered and renormalized before comparison, improving
+ * discrimination across semantically clustered protocol sets.</p>
  */
 public class TriageService implements AutoCloseable, Triage {
     private static final Logger logger = Logger.getLogger(TriageService.class.getName());
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm:ss");
     private static final String LOG_INPUT = "classifier_input.log";
     private static final String LOG_OUTPUT = "classifier_output.log";
+    private static final float SIMILARITY_THRESHOLD = 0.30f;
 
     private final Path modelFile;
     private LlamaModel model;
     private final Map<String, float[]> protocolVectorCache = new ConcurrentHashMap<>();
-    private float[] centroid;
+    @SuppressWarnings("java:S3077") // volatile on reference is correct: we always assign a new array, never mutate elements in-place
+    private volatile float[] centroid;
 
     public TriageService(Path modelFile) {
         this.modelFile = modelFile;
@@ -51,6 +59,7 @@ public class TriageService implements AutoCloseable, Triage {
             logger.info("TriageService: Semantic model initialized successfully.");
         } catch (Exception e) {
             logger.log(Level.SEVERE, "TriageService: Failed to initialize semantic model", e);
+            throw new IllegalStateException("TriageService: embedding model could not be loaded: " + modelFile, e);
         }
     }
 
@@ -85,13 +94,20 @@ public class TriageService implements AutoCloseable, Triage {
     private static final String NAME_EXCLUSION_REGEX = "(?i)\\b(soteria|sotelia|zoteria|soteia)\\b";
 
     /**
-     * Dynamically classifies an input against a set of protocol candidates.
+     * Ranks {@code candidates} by semantic similarity to {@code text} and returns the best match if
+     * its cosine similarity score meets {@value #SIMILARITY_THRESHOLD}. When {@code candidates} is
+     * empty, returns {@link Intent#GREETING_OR_CASUAL} — RAG determined nothing is relevant, not an
+     * error condition.
+     *
+     * @param text       raw user input; {@code null} or blank returns {@link Intent#UNKNOWN}
+     * @param candidates pre-filtered protocol list from RAG; {@code null} treated as empty
+     * @return triage result with the winning protocol (or {@code null}), its score, and the mapped intent
      */
     public TriageResult classifyDynamic(String text, List<Protocol> candidates) {
-        logRaw(LOG_INPUT, "DYNAMIC_TRIAGE: " + (text == null ? "NULL" : text) 
+        logRaw(LOG_INPUT, "DYNAMIC_TRIAGE: " + (text == null ? "NULL" : text)
                 + " | candidates=" + (candidates != null ? candidates.size() : 0));
 
-        if (model == null || text == null || text.isBlank()) {
+        if (text == null || text.isBlank()) {
             return new TriageResult(null, 0.0f, Intent.UNKNOWN);
         }
 
@@ -128,7 +144,7 @@ public class TriageService implements AutoCloseable, Triage {
 
             ProtocolBestMatch bestMatch = findBestProtocol(centeredInput, candidates);
 
-            if (bestMatch.protocol != null && bestMatch.score >= 0.30f) {
+            if (bestMatch.protocol != null && bestMatch.score >= SIMILARITY_THRESHOLD) {
                 Intent intent = mapToIntent(bestMatch.protocol.getCategory());
                 TriageResult result = new TriageResult(bestMatch.protocol, bestMatch.score, intent);
                 logRaw(LOG_OUTPUT, String.format("Result: %s (Score: %.4f, ID: %s)", intent, bestMatch.score, bestMatch.protocol.getId()));
@@ -209,9 +225,16 @@ public class TriageService implements AutoCloseable, Triage {
         }
     }
 
+    /**
+     * Configures mean-centering for the embedding space. All subsequent comparisons will subtract
+     * this centroid from input and protocol vectors before normalizing, improving discrimination
+     * when protocols cluster semantically close together.
+     * <p>Invalidates the protocol vector cache — cached vectors were built in the old space and
+     * must be recomputed for the new one.</p>
+     */
     public void setCentroid(float[] centroid) {
+        this.protocolVectorCache.clear(); // clear BEFORE updating: entries are valid only in the old space
         this.centroid = centroid;
-        this.protocolVectorCache.clear(); // Important: clear cache as space has changed
     }
 
     private float[] center(float[] vector) {
@@ -219,6 +242,22 @@ public class TriageService implements AutoCloseable, Triage {
         return VectorMath.normalize(VectorMath.subtract(vector, centroid));
     }
 
+    /**
+     * Embeds {@code text} using the service's local model. Prefer this over exposing the
+     * underlying {@code LlamaModel} — for example, to build centroids from protocol corpora
+     * without leaking the llama.cpp implementation type.
+     *
+     * @return raw embedding vector; length depends on the model's hidden dimension
+     */
+    public float[] embed(String text) {
+        return model.embed(text);
+    }
+
+    /**
+     * Returns the underlying {@link LlamaModel} for callers that need to wire it into
+     * components expecting a {@code LlamaModel} directly (e.g. {@code EmergencyKnowledgeBase#setEmbedder}).
+     * Prefer {@link #embed(String)} for single-text embedding.
+     */
     public LlamaModel getModel() {
         return model;
     }

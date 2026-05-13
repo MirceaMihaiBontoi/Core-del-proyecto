@@ -25,7 +25,12 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Manages Lucene index operations, including indexing and directory management.
+ * Manages the persistent Lucene index for emergency protocols.
+ * 
+ * <p>Beyond standard text indexing, this class acts as a vector database. During ingestion,
+ * it coordinates with the {@link SemanticEngine} to calculate a global corpus centroid,
+ * which is then subtracted from each individual protocol embedding before storage
+ * (mean-centering) to improve the discriminative power of cosine similarity.</p>
  */
 public class LuceneIndexManager implements AutoCloseable {
     private static final Logger logger = Logger.getLogger(LuceneIndexManager.class.getName());
@@ -89,6 +94,12 @@ public class LuceneIndexManager implements AutoCloseable {
         return false;
     }
 
+    /**
+     * Rebuilds the index with the provided protocols.
+     * <p>If the {@code semanticEngine} has an active embedder, this method extracts embeddings
+     * for all protocols, computes their global centroid, saves the centroid back to the engine,
+     * and stores mean-centered vectors in the index.</p>
+     */
     public void indexProtocols(List<Protocol> protocols, SemanticEngine semanticEngine) {
         if (logger.isLoggable(Level.INFO)) {
             logger.log(Level.INFO, "Indexing {0} protocols (Embedder: {1})...",

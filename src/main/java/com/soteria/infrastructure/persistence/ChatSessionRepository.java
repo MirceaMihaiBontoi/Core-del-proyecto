@@ -17,10 +17,17 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Handles JSON-based persistence for chat sessions.
- * Sessions are stored in the user's home directory.
+ * Persists chat sessions as individual JSON files under {@code ~/.soteria/sessions/}.
+ *
+ * <p>Each session is stored as {@code {sessionId}.json}. Files are written and
+ * deleted at the individual-file level; no cross-session transactions are needed
+ * because SoterIA is a single-user application.</p>
+ *
+ * <p>Corrupt or unreadable session files are skipped individually — a bad file
+ * does not prevent the rest of the session history from loading.</p>
  */
 public class ChatSessionRepository {
+
     private static final Logger log = Logger.getLogger(ChatSessionRepository.class.getName());
     private static final String JSON_EXTENSION = ".json";
     private static final ObjectMapper MAPPER = new ObjectMapper()
@@ -51,6 +58,14 @@ public class ChatSessionRepository {
         }
     }
 
+    /**
+     * Loads all persisted sessions, sorted newest-first by timestamp.
+     *
+     * <p>Files that cannot be parsed are skipped individually so that a single
+     * corrupt entry does not block access to the rest of the history.</p>
+     *
+     * @return mutable list of sessions; empty if none exist or the directory is unreadable
+     */
     public List<ChatSession> getAllSessions() {
         List<ChatSession> sessions = new ArrayList<>();
         File dir = sessionsDir.toFile();
@@ -65,12 +80,19 @@ public class ChatSessionRepository {
                 }
             }
         }
-        
-        // Sort by timestamp descending (newest first)
+
         sessions.sort(Comparator.comparingLong(ChatSession::getTimestamp).reversed());
         return sessions;
     }
 
+    /**
+     * Writes the session to disk, overwriting any previous file for the same session ID.
+     *
+     * <p>Failures are swallowed — the chat flow must not be interrupted by a
+     * persistence error.</p>
+     *
+     * @param session the session to persist; must not be {@code null}
+     */
     public void saveSession(ChatSession session) {
         try {
             Path sessionFile = sessionsDir.resolve(session.getId() + JSON_EXTENSION);
@@ -80,6 +102,11 @@ public class ChatSessionRepository {
         }
     }
 
+    /**
+     * Deletes the session file for the given ID. A missing file is silently ignored.
+     *
+     * @param sessionId ID of the session to remove
+     */
     public void delete(String sessionId) {
         Path sessionFile = sessionsDir.resolve(sessionId + JSON_EXTENSION);
         try {

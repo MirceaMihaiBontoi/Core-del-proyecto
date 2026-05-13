@@ -8,8 +8,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Implementation of LocalizationService using standard Java ResourceBundles.
- * Centralizes all system strings for >50 languages support.
+ * Centralizes UI and text-to-speech string resolution to isolate the system
+ * from MissingResourceExceptions that would crash the interface or halt audio output.
  */
 public class ResourceLocalizationService implements LocalizationService {
     private static final Logger logger = Logger.getLogger(ResourceLocalizationService.class.getName());
@@ -26,6 +26,11 @@ public class ResourceLocalizationService implements LocalizationService {
         setLocale(locale);
     }
 
+    /**
+     * Resolves a localization string with a strict safe-fallback contract.
+     * If the key is absent in the target locale, it degrades gracefully and ultimately
+     * returns the raw key string to prevent UI rendering or TTS synthesis failures.
+     */
     @Override
     public String getMessage(String key) {
         try {

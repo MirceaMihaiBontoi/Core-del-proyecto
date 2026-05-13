@@ -8,7 +8,6 @@ import java.util.logging.Logger;
 
 /**
  * Loads the {@code jllama} native built from <strong>SoterIA's tracked fork</strong> of java-llama.cpp
- * (see {@code lib/GEMMA4_JLLAMA.txt} for the canonical Git URL).
  *
  * <p>The Maven artifact {@code de.kherud:llama} supplies the Java API ({@code de.kherud.llama.*});
  * the <strong>native must match that fork's llama.cpp</strong> (build under {@code vendor/java-llama.cpp}
@@ -25,6 +24,13 @@ public final class LlamaNativeBootstrap {
 
     private LlamaNativeBootstrap() {}
 
+    /**
+     * Sets {@value #LIB_PATH_PROPERTY} to {@code lib/llama/} if the platform-specific native
+     * exists there and the property has not already been set.
+     *
+     * <p>Idempotent: safe to call multiple times. An explicit
+     * {@code -Dde.kherud.llama.lib.path=...} on the JVM command line is never overwritten.</p>
+     */
     public static void applyIfNeeded() {
         String existing = System.getProperty(LIB_PATH_PROPERTY);
         if (existing != null && !existing.isBlank()) {

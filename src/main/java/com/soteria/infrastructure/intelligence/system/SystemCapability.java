@@ -7,7 +7,12 @@ import java.io.RandomAccessFile;
 import java.io.IOException;
 
 /**
- * Detects system resources to determine the optimal AI model profile.
+ * Detects system resources (RAM, CPU cores) to assign the optimal AI model profile.
+ * 
+ * <p>Employs a cascading fallback mechanism to detect physical RAM across OSs
+ * (from JVM MXBeans down to /proc/meminfo) to avoid {@link OutOfMemoryError}
+ * during native model loading. Also manages inference thread allocation to
+ * prevent thermal throttling and system locking.</p>
  */
 public class SystemCapability {
     private static final Logger logger = Logger.getLogger(SystemCapability.class.getName());

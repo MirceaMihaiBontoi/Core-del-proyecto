@@ -14,9 +14,15 @@ public class AudioUtils {
     private AudioUtils() {}
 
     /**
-     * Attempts to find and open a TargetDataLine with the requested format.
-     * Tries multiple strategies to bypass common "Line not supported" errors.
-     * Returns an ALREADY OPENED line.
+     * Attempts to acquire an audio capture line by trying multiple fallback strategies.
+     * <p>
+     * Audio subsystem behavior varies significantly across OSes (PulseAudio/ALSA on Linux,
+     * CoreAudio on Mac, WASAPI on Windows). This method mitigates "Line not supported"
+     * errors by searching for compatible mixers when the default system line fails.
+     *
+     * @param format the specific audio format (sample rate, bit depth) required for the model
+     * @return an already opened line ready for capture
+     * @throws LineUnavailableException if all hardware fallback strategies are exhausted
      */
     public static TargetDataLine getResilientMic(AudioFormat format) throws LineUnavailableException {
         DataLine.Info info = new DataLine.Info(TargetDataLine.class, format);

@@ -8,7 +8,11 @@ import java.util.logging.Logger;
 
 /**
  * Centralized loader for native libraries used by sherpa-onnx.
- * Supports both Windows and Linux platforms with platform-specific library loading strategies.
+ * 
+ * <p>Bypasses standard {@code java.library.path} resolution in favor of absolute paths
+ * to prevent classloader stability issues. For Linux, it strictly enforces the
+ * dependency loading order (onnxruntime -> cxx-api -> c-api -> jni) to avoid
+ * {@code UnsatisfiedLinkError} during symbol resolution by {@code ld.so}.</p>
  */
 public class NativeLibraryLoader {
 
@@ -19,13 +23,11 @@ public class NativeLibraryLoader {
     }
 
     public static synchronized void load() {
-        System.out.println("[NativeLibraryLoader] load() called");
-        System.out.flush();
+        logger.fine("load() called");
 
         try {
             String platform = PlatformDetector.getPlatformIdentifier();
-            System.out.println("[NativeLibraryLoader] Platform detected: " + platform);
-            System.out.flush();
+            logger.log(Level.FINE, "Platform detected: {0}", platform);
             logger.log(Level.CONFIG, "Loading native libraries for platform: {0}", platform);
 
             if ("windows".equals(platform)) {
@@ -36,12 +38,8 @@ public class NativeLibraryLoader {
                 throw new IllegalStateException("Unsupported platform: " + platform);
             }
 
-            System.out.println("[NativeLibraryLoader] All libraries loaded successfully");
-            System.out.flush();
+            logger.info("All libraries loaded successfully");
         } catch (LinkageError | Exception t) {
-            System.err.println("[NativeLibraryLoader] CRITICAL FAILURE: " + t.getMessage());
-            System.err.flush();
-            t.printStackTrace();
             logger.log(Level.SEVERE, "CRITICAL: Failed to load native libraries for SoterIA. Audio services will fail.", t);
             // Don't throw - let the application continue and fail later with a more specific error
         }
@@ -90,13 +88,11 @@ public class NativeLibraryLoader {
     }
 
     private static void loadLinux() {
-        System.out.println("[NativeLibraryLoader] loadLinux() starting...");
-        System.out.flush();
+        logger.fine("loadLinux() starting...");
         
         // Try system path first
         if (tryLoadFromSystem()) {
-            System.out.println("[NativeLibraryLoader] Loaded from system path");
-            System.out.flush();
+            logger.info("Loaded from system path");
             return;
         }
 
@@ -104,8 +100,7 @@ public class NativeLibraryLoader {
         // after JVM startup doesn't work reliably
         String userDir = System.getProperty("user.dir");
         Path platformDir = Paths.get(userDir, "lib", "sherpa-onnx", "linux");
-        System.out.println("[NativeLibraryLoader] Platform directory: " + platformDir);
-        System.out.flush();
+        logger.log(Level.FINE, "Platform directory: {0}", platformDir);
 
         if (!Files.isDirectory(platformDir)) {
             throw new IllegalStateException("Linux native library directory not found: " + platformDir);
@@ -131,28 +126,23 @@ public class NativeLibraryLoader {
         }
 
         // Load in dependency order: onnxruntime -> cxx-api -> c-api -> jni
-        System.out.println("[NativeLibraryLoader] Loading libonnxruntime.so...");
-        System.out.flush();
+        logger.fine("Loading libonnxruntime.so...");
         System.load(ortPath.toAbsolutePath().toString());
         logger.log(Level.INFO, "Loaded onnxruntime from: {0}", ortPath);
 
-        System.out.println("[NativeLibraryLoader] Loading libsherpa-onnx-cxx-api.so...");
-        System.out.flush();
+        logger.fine("Loading libsherpa-onnx-cxx-api.so...");
         System.load(cxxApiPath.toAbsolutePath().toString());
         logger.log(Level.INFO, "Loaded sherpa-onnx-cxx-api from: {0}", cxxApiPath);
 
-        System.out.println("[NativeLibraryLoader] Loading libsherpa-onnx-c-api.so...");
-        System.out.flush();
+        logger.fine("Loading libsherpa-onnx-c-api.so...");
         System.load(cApiPath.toAbsolutePath().toString());
         logger.log(Level.INFO, "Loaded sherpa-onnx-c-api from: {0}", cApiPath);
 
-        System.out.println("[NativeLibraryLoader] Loading libsherpa-onnx-jni.so...");
-        System.out.flush();
+        logger.fine("Loading libsherpa-onnx-jni.so...");
         System.load(jniPath.toAbsolutePath().toString());
         logger.log(Level.INFO, "Loaded sherpa-onnx-jni from: {0}", jniPath);
         
-        System.out.println("[NativeLibraryLoader] All Linux libraries loaded successfully");
-        System.out.flush();
+        logger.info("All Linux libraries loaded successfully");
     }
 
     private static boolean tryLoadFromSystem() {

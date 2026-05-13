@@ -11,26 +11,24 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Handles file-based logging for TTS operations, replacing terminal output.
- * Log files are stored in logs/voice/
+ * Writes TTS diagnostic output to {@code logs/voice/tts.log} instead of stdout.
+ *
+ * <p>The log file is truncated on each application start so it never grows
+ * unbounded. Failures to write are demoted to JUL {@code WARNING} so a
+ * missing log directory never interrupts synthesis.</p>
  */
 public class TTSLogger {
+
     private static final Logger logger = Logger.getLogger(TTSLogger.class.getName());
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private static final String BORDER = "====================================================";
-
     private static final String LOG_PATH = "logs/voice/tts.log";
 
     public void setup() {
         try {
             Path logDir = Paths.get("logs", "voice");
-            if (!Files.exists(logDir)) {
-                Files.createDirectories(logDir);
-            }
-
-            // Initialize or clear main tts log
+            if (!Files.exists(logDir)) Files.createDirectories(logDir);
             initLogFile(LOG_PATH, "--- SoterIA TTS System Log (Autocleaned) ---\n");
-            
         } catch (IOException e) {
             logger.log(Level.WARNING, e, () -> "Failed to initialize TTS logging system");
         }
@@ -42,13 +40,9 @@ public class TTSLogger {
                 StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
     }
 
-    public void info(String message) {
-        log("INFO", message);
-    }
+    public void info(String message) { log("INFO", message); }
 
-    public void warn(String message) {
-        log("WARN", message);
-    }
+    public void warn(String message) { log("WARN", message); }
 
     public void error(String message, Throwable t) {
         log("ERROR", message + (t != null ? " | " + t.getMessage() : ""));
@@ -71,8 +65,7 @@ public class TTSLogger {
 
     private void log(String level, String message) {
         String time = LocalDateTime.now().format(TIME_FORMATTER);
-        String entry = String.format("%s [%s] %s%n", time, level, message);
-        appendToFile(LOG_PATH, entry);
+        appendToFile(LOG_PATH, String.format("%s [%s] %s%n", time, level, message));
     }
 
     private void appendToFile(String path, String content) {

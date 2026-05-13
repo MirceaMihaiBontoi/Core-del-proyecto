@@ -29,20 +29,15 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Speech-to-text backed by sherpa-onnx: offline Whisper for decoding and Silero VAD for segment boundaries.
+ * {@link STT} port backed by sherpa-onnx: offline Whisper decoding gated by Silero VAD.
  *
- * <p>Two worker threads cooperate: one captures microphone frames into a bounded queue; the other feeds VAD,
- * emits {@linkplain STTListener#onPartialResult(String) partial} previews during speech, and
- * {@linkplain STTListener#onResult(String) final} results when the VAD closes a segment. Partials throttle
- * full re-decodes of accumulated audio (not per-frame), which keeps CPU bounded while still giving Whisper enough
- * context.</p>
+ * <p>Two daemon threads cooperate through a bounded {@code audioQueue}: one captures and preprocesses
+ * mic frames; the other runs VAD and drives Whisper decodes, emitting
+ * {@linkplain STTListener#onPartialResult(String) partials} and
+ * {@linkplain STTListener#onResult(String) finals} via the registered listener.</p>
  *
- * <p>Each listening session has an {@linkplain #sttEpoch epoch}: {@link #stopListening()}, restarts, and
- * {@link #close()} bump it so asynchronous transcription work can drop stale output safely.</p>
- * 
- * <p><strong>Professional enhancements:</strong> Uses pre-emphasis filtering, noise gating, dynamic compression,
- * contextual VAD, and greedy search for transcriptions to match commercial STT quality. Note: sherpa-onnx only
- * supports greedy_search for Whisper models.</p>
+ * <p>Each listening session carries a monotonic {@linkplain #sttEpoch epoch}; stale transcription results
+ * are silently discarded when the epoch no longer matches.</p>
  */
 public class SherpaSTTService implements AutoCloseable, STT {
     private static final Logger logger = Logger.getLogger(SherpaSTTService.class.getName());
@@ -55,34 +50,28 @@ public class SherpaSTTService implements AutoCloseable, STT {
     private final SherpaSTTVoiceLogWriter voiceLog = new SherpaSTTVoiceLogWriter();
 
     private volatile boolean listening = false;
+    private volatile boolean warmupComplete = false;
+    private final Object sttNativeLock = new Object();
 
-    /**
-     * Monotonic session identifier incremented when listening stops, restarts, or the service closes.
-     * Compared inside transcription to ignore results from an outdated session.
-     */
+
     private final AtomicLong sttEpoch = new AtomicLong(0);
     private final BlockingQueue<float[]> audioQueue = new LinkedBlockingQueue<>(100);
     private final AudioNormalizer normalizer = new AudioNormalizer();
     private final AudioPreProcessor preProcessor = new AudioPreProcessor();
 
-    /**
-     * @param modelPath   directory containing Whisper ONNX assets (encoder, decoder, tokens)
-     * @param modelManager shared model paths and VAD/STT settings
-     * @throws IOException if Whisper or VAD assets are missing or invalid
-     */
+
     public SherpaSTTService(Path modelPath, ModelManager modelManager) throws IOException {
         this(modelPath, "", modelManager);
     }
 
-    /**
-     * @param modelPath   directory containing Whisper ONNX assets
-     * @param language    BCP 47 / ISO language hint; normalized via {@link LanguageUtils#isoCode(String)}
-     * @param modelManager shared model paths and VAD/STT settings
-     * @throws IOException if Whisper or VAD assets are missing or invalid
-     */
+    /** @throws IOException if Whisper or VAD assets are missing or invalid */
     public SherpaSTTService(Path modelPath, String language, ModelManager modelManager) throws IOException {
+        voiceLog.setup();
         this.modelManager = modelManager;
         this.language = LanguageUtils.isoCode(language);
+
+        logger.info(() -> "STT: Initializing Whisper engine for language " + this.language);
+        voiceLog.info("Initializing Whisper engine for language " + this.language);
 
         NativeLibraryLoader.load();
 
@@ -109,6 +98,9 @@ public class SherpaSTTService implements AutoCloseable, STT {
         this.greedyRecognizer = greedy;
         this.beamRecognizer = beam;
 
+        logger.info("STT: Engine initialized successfully");
+        voiceLog.info("Engine initialized successfully");
+
         this.workerPool = Executors.newFixedThreadPool(2, r -> {
             Thread t = new Thread(r);
             t.setDaemon(true);
@@ -116,15 +108,45 @@ public class SherpaSTTService implements AutoCloseable, STT {
             return t;
         });
 
-        voiceLog.setup();
-        logger.info("STT: Initialized with professional audio processing pipeline");
+        startWarmupThread();
+        voiceLog.info("Initialized with professional audio processing pipeline");
+    }
+
+    private void startWarmupThread() {
+        Thread warmupThread = new Thread(() -> {
+            try {
+                logger.info("STT: Warmup starting...");
+                voiceLog.info("Warmup starting...");
+                synchronized (sttNativeLock) {
+                    OfflineStream stream = greedyRecognizer.createStream();
+                    try {
+                        // 1 second of silence at 16kHz to prime the Whisper engine
+                        float[] silence = new float[ModelManager.STT_SAMPLE_RATE];
+                        stream.acceptWaveform(silence, ModelManager.STT_SAMPLE_RATE);
+                        greedyRecognizer.decode(stream);
+                    } finally {
+                        stream.release();
+                    }
+                }
+                logger.info("STT: Warmup complete.");
+                voiceLog.info("Warmup complete.");
+            } catch (Exception e) {
+                logger.log(Level.WARNING, "STT: Warmup failed", e);
+            } finally {
+                warmupComplete = true;
+            }
+        }, "stt-warmup");
+        warmupThread.setDaemon(true);
+        warmupThread.start();
+    }
+
+    public boolean isWarmupComplete() {
+        return warmupComplete;
     }
 
     /**
-     * Starts capture and processing for this listener. Safe to call again: an active session is torn down first
-     * (brief wait) so workers do not overlap on the same queue.
-     *
-     * @param listener receives partials, finals, and errors; ignored if {@code null}
+     * Safe to call while already listening: the active session is torn down (150 ms drain wait)
+     * before the new one starts.
      */
     @Override
     public void startListening(STTListener listener) {
@@ -143,7 +165,7 @@ public class SherpaSTTService implements AutoCloseable, STT {
         if (hadActiveCapture) {
             try {
                 Thread.sleep(150);
-            } catch (InterruptedException e) {
+            } catch (InterruptedException _) {
                 Thread.currentThread().interrupt();
                 logger.warning("STT: interrupted while draining previous capture.");
                 return;
@@ -171,9 +193,7 @@ public class SherpaSTTService implements AutoCloseable, STT {
         workerPool.submit(() -> runProcessingLoop(listener, epoch));
     }
 
-    /**
-     * Reads fixed-size frames from the mic, normalizes, applies professional preprocessing, and enqueues PCM floats for the VAD/processing thread.
-     */
+
     private void runAudioCapture(STTListener listener) {
         AudioFormat format = new AudioFormat(ModelManager.STT_SAMPLE_RATE,
                 ModelManager.STT_BIT_DEPTH, ModelManager.STT_CHANNELS, true, false);
@@ -218,14 +238,7 @@ public class SherpaSTTService implements AutoCloseable, STT {
         }
     }
 
-    /**
-     * Dequeues audio, runs contextual VAD, schedules throttled partial decodes while speech is present, and final decodes
-     * on each completed VAD segment.
-     *
-     * @param listener callback for results
-     * @param epoch    session id captured at {@link #startListening(STTListener)}; must match {@link #sttEpoch}
-     *                 for transcription to be delivered
-     */
+
     private void runProcessingLoop(STTListener listener, long epoch) {
         final Vad vad;
         try {
@@ -277,18 +290,7 @@ public class SherpaSTTService implements AutoCloseable, STT {
         }
     }
 
-    /**
-     * Appends the current frame to {@code buffer}. At most roughly once per ~1.2s, if accumulated samples exceed a
-     * small minimum, runs a partial decode on the full buffer so the model sees enough context without decoding
-     * every frame. The buffer is cleared only when {@link #processCompletedSegments} consumes a finished VAD segment.
-     *
-     * @param samples         mono PCM frame (same length as VAD window)
-     * @param buffer          chunks for the current VAD speech span
-     * @param lastPartialTime last wall-clock time (ms) a partial was emitted, or {@code 0}
-     * @param listener        partial callback target
-     * @param epoch           current session; must match {@link #sttEpoch} inside transcribe
-     * @return updated {@code lastPartialTime} if a partial was sent, otherwise the previous value
-     */
+
     private long handleActiveSpeech(float[] samples, List<float[]> buffer, long lastPartialTime,
             STTListener listener, long epoch) {
         buffer.add(samples);
@@ -305,10 +307,7 @@ public class SherpaSTTService implements AutoCloseable, STT {
         return lastPartialTime;
     }
 
-    /**
-     * Drains completed speech segments from the VAD queue: each yields one final transcription and resets
-     * {@code buffer} for the next utterance.
-     */
+
     private void processCompletedSegments(Vad vad, List<float[]> buffer, STTListener listener, long epoch) {
         while (!vad.empty()) {
             float[] segment = vad.front().getSamples();
@@ -318,7 +317,7 @@ public class SherpaSTTService implements AutoCloseable, STT {
         }
     }
 
-    /** Concatenates float chunks into one array for decoding. */
+
     private float[] flatten(List<float[]> chunks) {
         int totalLength = 0;
         for (float[] chunk : chunks) totalLength += chunk.length;
@@ -331,74 +330,58 @@ public class SherpaSTTService implements AutoCloseable, STT {
         return result;
     }
 
-    /**
-     * Runs offline recognition if the sample count is sufficient and {@code epoch} still matches the live session.
-     * Releases the native stream in a {@code finally} block.
-     * 
-     * Note: Both recognizers use greedy search (sherpa-onnx limitation for Whisper).
-     *
-     * @param isPartial {@code true} for previews during speech, {@code false} for VAD-finalized segments
-     */
+
     private void transcribeAndReport(float[] samples, STTListener listener, boolean isPartial, long epoch) {
-        if (samples.length < 1600) return;
+        if (samples.length < 1600 || epoch != sttEpoch.get()) return;
 
         // Choose recognizer based on partial vs final
         OfflineRecognizer recognizer = isPartial ? greedyRecognizer : beamRecognizer;
         
-        OfflineStream stream = null;
-        try {
-            if (epoch != sttEpoch.get()) {
-                return;
-            }
+        synchronized (sttNativeLock) {
+            OfflineStream stream = recognizer.createStream();
+            try {
+                long t0 = System.nanoTime();
+                stream.acceptWaveform(samples, ModelManager.STT_SAMPLE_RATE);
+                recognizer.decode(stream);
+                String text = recognizer.getResult(stream).getText().trim();
 
-            long t0 = System.nanoTime();
-            
-            stream = recognizer.createStream();
-            stream.acceptWaveform(samples, ModelManager.STT_SAMPLE_RATE);
-            recognizer.decode(stream);
-            String text = recognizer.getResult(stream).getText().trim();
-
-            long decodeMs = (System.nanoTime() - t0) / 1_000_000;
-            
-            // Log slow decodes for performance monitoring
-            if (decodeMs > 500) {
-                logger.log(Level.WARNING, "STT: Slow decode: {0}ms for {1} samples ({2})", 
-                    new Object[]{decodeMs, samples.length, isPartial ? "partial" : "final"});
-            }
-
-            if (epoch != sttEpoch.get()) {
-                return;
-            }
-
-            // Filter spurious Whisper tokens: isolated brackets, very short strings, or whitespace-only
-            if (!text.isEmpty() && !isSpuriousToken(text)) {
-                voiceLog.logVoice(String.format("[%s] %s (decode: %dms)", 
-                    isPartial ? "PARTIAL" : "FINAL", text, decodeMs));
-                if (isPartial) {
-                    listener.onPartialResult(text);
-                } else {
-                    logger.log(Level.INFO, "STT Final: {0} (greedy search, {1}ms)", new Object[]{text, decodeMs});
-                    listener.onResult(text);
+                long decodeMs = (System.nanoTime() - t0) / 1_000_000;
+                
+                // Log slow decodes for performance monitoring
+                if (decodeMs > 500) {
+                    logger.log(Level.WARNING, "STT: Slow decode: {0}ms for {1} samples ({2})", 
+                        new Object[]{decodeMs, samples.length, isPartial ? "partial" : "final"});
                 }
-            } else if (!text.isEmpty()) {
-                logger.log(Level.FINE, "STT: Filtered spurious token: ''{0}''", text);
-            }
-        } catch (Exception e) {
-            logger.log(Level.WARNING, "STT: Transcription error", e);
-        } finally {
-            if (stream != null) {
+
+                if (epoch == sttEpoch.get() && !text.isEmpty()) {
+                    reportDecodedText(text, decodeMs, isPartial, listener);
+                }
+            } catch (Exception e) {
+                logger.log(Level.WARNING, "STT: Transcription error", e);
+            } finally {
                 stream.release();
             }
         }
     }
 
-    /**
-     * Detects spurious tokens that Whisper sometimes generates when context is insufficient.
-     * Common patterns: isolated brackets "[", "]", very short strings, or punctuation-only.
-     *
-     * @param text transcribed text to validate
-     * @return {@code true} if the text should be filtered out
-     */
+    private void reportDecodedText(String text, long decodeMs, boolean isPartial, STTListener listener) {
+        if (isSpuriousToken(text)) {
+            logger.log(Level.FINE, "STT: Filtered spurious token: ''{0}''", text);
+            return;
+        }
+
+        voiceLog.logVoice(String.format("[%s] %s (decode: %dms)", 
+            isPartial ? "PARTIAL" : "FINAL", text, decodeMs));
+
+        if (isPartial) {
+            listener.onPartialResult(text);
+        } else {
+            logger.log(Level.INFO, "STT Final: {0} (greedy search, {1}ms)", new Object[]{text, decodeMs});
+            listener.onResult(text);
+        }
+    }
+
+
     private boolean isSpuriousToken(String text) {
         // Single character tokens (except valid single letters in some languages)
         if (text.length() == 1) {
@@ -413,9 +396,7 @@ public class SherpaSTTService implements AutoCloseable, STT {
                text.equals("...") || text.equals("...");
     }
 
-    /**
-     * Stops capture and processing and invalidates in-flight transcription for this session by bumping the epoch.
-     */
+
     @Override
     public void stopListening() {
         synchronized (this) {
@@ -424,16 +405,12 @@ public class SherpaSTTService implements AutoCloseable, STT {
         }
     }
 
-    /** Delegates to {@link #close()}. */
+
     public void shutdown() {
         close();
     }
 
-    /**
-     * Stops listening, shuts down worker threads, and releases both recognizers. Idempotent with respect to
-     * stopping capture; do not call {@link #startListening(STTListener)} after this without constructing a new
-     * service (the executor is terminated).
-     */
+    /** Terminal — the worker pool cannot be restarted after this call. */
     @Override
     public void close() {
         stopListening();
@@ -441,5 +418,6 @@ public class SherpaSTTService implements AutoCloseable, STT {
         // Only release once since both references point to the same recognizer
         if (greedyRecognizer != null) greedyRecognizer.release();
         logger.info("STT: Service shut down.");
+        voiceLog.info("Service shut down.");
     }
 }

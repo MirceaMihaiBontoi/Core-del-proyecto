@@ -11,7 +11,12 @@ import java.util.logging.Logger;
 import static com.soteria.infrastructure.intelligence.system.ModelAssets.*;
 
 /**
- * Resolves local file system paths for AI models and checks for their existence.
+ * Resolves local file system paths for AI models and performs structural validation.
+ * <p>
+ * Uses a cascading priority (checking {@code ~/.soteria} then the local repo) to
+ * support both portable development and installed environments. Validation checks
+ * ensure all required internal files (e.g., encoder/decoder ONNX graphs) are present.
+ * </p>
  */
 public class ModelPathResolver {
     private static final Logger logger = Logger.getLogger(ModelPathResolver.class.getName());
@@ -90,13 +95,9 @@ public class ModelPathResolver {
     }
 
     /**
-     * Busca un modelo en orden:
-     *   1. ~/.soteria/models/<name>
-     *   2. <repo>/models/<name>
-     *   3. Devuelve el path de ~/.soteria/models/ para que el downloader descargue ahí.
-     *
-     * @param name      nombre del fichero o directorio del modelo
-     * @param isDir     true si el modelo es un directorio (STT, TTS, KWS), false si es un fichero
+     * Resolves the highest priority path for a model.
+     * <p>Checks {@code ~/.soteria/models/} first, then falls back to the repository root.
+     * If missing in both, returns the {@code ~/.soteria} path as the target for the downloader.</p>
      */
     private Path resolveModelPath(String name, boolean isDir) {
         // 1. ~/.soteria/models/

@@ -19,10 +19,11 @@ public class ContextualVAD {
     private final Deque<Boolean> recentDecisions = new ArrayDeque<>(CONTEXT_WINDOW_SIZE);
     
     /**
-     * Adds a new VAD decision and returns the contextual decision.
+     * Evaluates a frame-level voice activity decision against the historical window
+     * to eliminate transient noise spikes (e.g., keyboard clicks).
      * 
-     * @param isSpeech raw VAD decision for current frame
-     * @return contextual decision based on recent history
+     * @param isSpeech the raw Boolean decision from the underlying acoustic model
+     * @return the smoothed decision requiring a majority vote from the context window
      */
     public boolean addDecision(boolean isSpeech) {
         // Add new decision
@@ -48,16 +49,10 @@ public class ContextualVAD {
         return speechCount >= MIN_SPEECH_FRAMES;
     }
     
-    /**
-     * Resets the context window (call when starting a new session).
-     */
     public void reset() {
         recentDecisions.clear();
     }
     
-    /**
-     * Returns true if we have enough context to make reliable decisions.
-     */
     public boolean hasFullContext() {
         return recentDecisions.size() >= CONTEXT_WINDOW_SIZE;
     }

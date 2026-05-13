@@ -20,8 +20,17 @@ import java.time.format.DateTimeFormatter;
 import java.nio.file.Paths;
 
 /**
- * High-performance, offline Keyword Spotting (Wake-Word) service using sherpa-onnx.
- * Runs continuously in the background.
+ * Continuously listens for the "SoterIA" wake word using an offline RNN-T transducer
+ * (sherpa-onnx {@link KeywordSpotter}) and invokes a registered callback on each hit.
+ *
+ * <p>A single daemon thread drives the audio capture loop. {@link #startListening} is
+ * idempotent: calling it again while the loop is running only swaps the active callback —
+ * no second thread is spawned. The loop retries up to 10 times with exponential backoff
+ * when the audio device is unavailable.</p>
+ *
+ * <p>Native resources ({@code KeywordSpotter}, {@code OnlineStream}) are owned by this
+ * class. Call {@link #close()} (or {@link #shutdown()}) to release them; after that,
+ * {@link #startListening} must not be called again.</p>
  */
 public class WakeWordService implements AutoCloseable {
     private static final Logger logger = Logger.getLogger(WakeWordService.class.getName());
@@ -37,6 +46,7 @@ public class WakeWordService implements AutoCloseable {
     private final CountDownLatch shutdownLatch = new CountDownLatch(1);
     private final AudioNormalizer normalizer = new AudioNormalizer();
 
+    /** @throws IOException if model files or the keyword file cannot be read or written */
     public WakeWordService(Path modelPath) throws IOException {
         NativeLibraryLoader.load();
         logger.log(Level.INFO, "Loading KWS model from: {0}", modelPath);
@@ -89,6 +99,11 @@ public class WakeWordService implements AutoCloseable {
         setupVoiceLogging();
     }
 
+    /**
+     * Registers {@code onWakeWordDetected} and starts the capture loop if not already running.
+     * If the loop is already active, only the callback is updated — no new thread is started.
+     * The callback is invoked on the internal capture thread; it must return quickly.
+     */
     public void startListening(Runnable onWakeWordDetected) {
         logger.info("WakeWordService: Registering/Updating listener.");
         this.activeListener.set(onWakeWordDetected);
@@ -106,75 +121,88 @@ public class WakeWordService implements AutoCloseable {
         AudioFormat format = new AudioFormat(16000, 16, 1, true, false);
         int retryCount = 0;
         int maxRetries = 10;
+        boolean cleanExit = false;
 
-        while (listening && retryCount < maxRetries) {
+        while (listening && retryCount < maxRetries && !cleanExit) {
             try {
-                this.line = AudioUtils.getResilientMic(format);
-                this.line.start();
-                retryCount = 0; // Reset on success
-
-                byte[] buffer = new byte[3200];
-                float[] floatBuffer = new float[buffer.length / 2];
-
-                logger.info("KWS Service: Listening in background for 'SoterIA'...");
-                OnlineStream stream = spotter.createStream();
-
-                int loopCounter = 0;
-                while (listening) {
-                    int bytesRead = line.read(buffer, 0, buffer.length);
-                    if (bytesRead < 0) {
-                        break;
-                    }
-
-                    // Apply automatic gain control / normalization
-                    normalizer.normalize(buffer, bytesRead);
-
-                    float maxAmp = convertToFloat(buffer, bytesRead, floatBuffer);
-
-                    stream.acceptWaveform(floatBuffer, 16000);
-                    while (spotter.isReady(stream)) {
-                        spotter.decode(stream);
-                    }
-
-                    checkKeywordResult(stream);
-
-                    if (++loopCounter % 20 == 0) {
-                        logVoice(String.format("Monitor: [Gain: %.2fx] [MaxAmp: %.5f]",
-                            normalizer.getCurrentGain(), maxAmp));
-                    }
+                cleanExit = processAudioCapture(format);
+                if (cleanExit) {
+                    retryCount = 0;
                 }
-
-                stream.release();
-                line.stop();
-                line.close();
-                logger.info("KWS Service: Stopped.");
-                break; // Clean exit
-
-            } catch (javax.sound.sampled.LineUnavailableException e) {
-                retryCount++;
-                long backoffMs = Math.min(1000L * (1L << retryCount), 30_000);
-                logger.log(Level.WARNING,
-                        "KWS: No audio device available (attempt {0}/{1}). Retrying in {2}s...",
-                        new Object[]{retryCount, maxRetries, backoffMs / 1000});
-                try {
-                    Thread.sleep(backoffMs);
-                } catch (InterruptedException _) {
-                    Thread.currentThread().interrupt();
-                    break;
+            } catch (javax.sound.sampled.LineUnavailableException _) {
+                retryCount = handleLineUnavailable(retryCount, maxRetries);
+                if (retryCount < 0) {
+                    cleanExit = true;
                 }
             } catch (Exception e) {
                 logger.log(Level.SEVERE, "Error in KWS audio loop", e);
-                break;
+                cleanExit = true;
             }
         }
 
         if (retryCount >= maxRetries) {
-            logger.warning("KWS: Audio device not available after " + maxRetries
-                    + " attempts. Wake word detection disabled for this session.");
+            logger.log(Level.WARNING, "KWS: Audio device not available after {0} attempts. Wake word detection disabled for this session.", maxRetries);
         }
 
         listening = false;
         shutdownLatch.countDown();
+    }
+
+    private boolean processAudioCapture(AudioFormat format) throws javax.sound.sampled.LineUnavailableException {
+        this.line = AudioUtils.getResilientMic(format);
+        this.line.start();
+
+        byte[] buffer = new byte[3200];
+        float[] floatBuffer = new float[buffer.length / 2];
+
+        logger.info("KWS Service: Listening in background for 'SoterIA'...");
+        OnlineStream stream = spotter.createStream();
+
+        int loopCounter = 0;
+        try {
+            while (listening) {
+                int bytesRead = line.read(buffer, 0, buffer.length);
+                if (bytesRead < 0) {
+                    break;
+                }
+
+                normalizer.normalize(buffer, bytesRead);
+                float maxAmp = convertToFloat(buffer, bytesRead, floatBuffer);
+
+                stream.acceptWaveform(floatBuffer, 16000);
+                while (spotter.isReady(stream)) {
+                    spotter.decode(stream);
+                }
+
+                checkKeywordResult(stream);
+
+                if (++loopCounter % 20 == 0) {
+                    logVoice(String.format("Monitor: [Gain: %.2fx] [MaxAmp: %.5f]",
+                        normalizer.getCurrentGain(), maxAmp));
+                }
+            }
+        } finally {
+            stream.release();
+            line.stop();
+            line.close();
+            logger.info("KWS Service: Stopped.");
+        }
+        return true;
+    }
+
+    private int handleLineUnavailable(int retryCount, int maxRetries) {
+        int nextRetryCount = retryCount + 1;
+        long backoffMs = Math.min(1000L * (1L << nextRetryCount), 30_000);
+        logger.log(Level.WARNING,
+                "KWS: No audio device available (attempt {0}/{1}). Retrying in {2}s...",
+                new Object[]{nextRetryCount, maxRetries, backoffMs / 1000});
+        try {
+            Thread.sleep(backoffMs);
+        } catch (InterruptedException _) {
+            Thread.currentThread().interrupt();
+            return -1;
+        }
+        return nextRetryCount;
     }
 
     private float convertToFloat(byte[] buffer, int bytesRead, float[] floatBuffer) {
@@ -249,6 +277,11 @@ public class WakeWordService implements AutoCloseable {
         }
     }
 
+    /**
+     * Stops capture, shuts down the executor, and releases the native {@code KeywordSpotter}.
+     * Waits up to 2 s for the capture thread to confirm exit before releasing native memory.
+     * Terminal — do not call {@link #startListening} after this.
+     */
     public void shutdown() {
         stopListening();
         executor.shutdownNow();

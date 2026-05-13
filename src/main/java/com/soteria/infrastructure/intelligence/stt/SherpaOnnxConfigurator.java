@@ -14,6 +14,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.logging.Logger;
 
 /**
  * Factory for sherpa-onnx components used by {@link SherpaSTTService}: Whisper offline ASR and Silero VAD.
@@ -23,26 +24,26 @@ import java.util.List;
  */
 final class SherpaOnnxConfigurator {
 
-    // Static initializer to ensure native libraries are loaded before any Sherpa-ONNX usage
     static {
-        System.out.println("[SherpaOnnxConfigurator] Ensuring native libraries are loaded...");
+        Logger.getLogger(SherpaSTTService.class.getName()).fine("STT: Loading native libraries...");
         com.soteria.infrastructure.intelligence.system.NativeLibraryLoader.load();
-        System.out.println("[SherpaOnnxConfigurator] Native libraries ready");
+        Logger.getLogger(SherpaSTTService.class.getName()).fine("STT: Native libraries ready.");
     }
 
     private SherpaOnnxConfigurator() {
     }
 
     /**
-     * Locates encoder, decoder, and token files under {@code modelPath} and builds a greedy-decoding offline
-     * Whisper recognizer aligned with {@link ModelManager#STT_SAMPLE_RATE}.
-     * Uses greedy search for speed (partials) or beam search for accuracy (finals).
+     * Locates encoder, decoder, and token files under {@code modelPath} and builds an offline Whisper recognizer
+     * for {@link ModelManager#STT_SAMPLE_RATE}.
+     * <p>{@code useBeamSearch} is accepted for API symmetry but currently has no effect: sherpa-onnx does not
+     * support {@code beam_search} for Whisper models and always falls back to {@code greedy_search}.</p>
      *
-     * @param modelPath directory listing Whisper ONNX and token assets
-     * @param language  Whisper language code (already normalized by the caller when applicable)
-     * @param useBeamSearch if true, uses beam search (slower, more accurate); if false, uses greedy (faster)
+     * @param modelPath     directory containing Whisper ONNX and token assets
+     * @param language      Whisper language code; caller is responsible for ISO normalization
+     * @param useBeamSearch reserved — currently ignored
      * @return a new recognizer; caller must {@link OfflineRecognizer#release()} when done
-     * @throws IOException if required files are missing or {@code modelPath} is not readable
+     * @throws IOException if required model files are missing or {@code modelPath} is unreadable
      */
     static OfflineRecognizer createWhisperRecognizer(Path modelPath, String language, boolean useBeamSearch) throws IOException {
         Path encoderPath = findFileBySuffix(modelPath, "-encoder.int8.onnx", "-encoder.onnx");
@@ -81,19 +82,14 @@ final class SherpaOnnxConfigurator {
         return new OfflineRecognizer(config);
     }
     
-    /**
-     * Backward compatibility: creates a greedy-search recognizer.
-     */
     static OfflineRecognizer createWhisperRecognizer(Path modelPath, String language) throws IOException {
         return createWhisperRecognizer(modelPath, language, false);
     }
 
     /**
-     * Builds a Silero VAD instance using thresholds and durations from {@code modelManager}.
-     *
-     * @param modelManager supplies VAD path, readiness, and timing/threshold parameters
-     * @return a new VAD; caller must {@link Vad#release()} when done
-     * @throws IOException if the VAD file is not available
+     * @param modelManager supplies VAD model path, readiness check, and all timing/threshold parameters
+     * @return a new {@link Vad}; caller must {@link Vad#release()} when done
+     * @throws IOException if the VAD model is not available or not yet downloaded
      */
     static Vad createSileroVad(ModelManager modelManager) throws IOException {
         Path vadPath = modelManager.getVADModelPath();

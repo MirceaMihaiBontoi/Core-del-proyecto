@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-> **Academic Project** — SoterIA is developed academic project. It is intended for educational and research purposes only and should not be used in real emergency situations.
+> **Academic Project** — SoterIA is developed as an academic project. It is intended for educational and research purposes only and should not be used in real emergency situations.
 
 SoterIA is a sophisticated, native Java-based emergency management platform designed to orchestrate critical responses in high-pressure environments. By integrating natural language processing, deterministic classification logic, and a multi-layered architectural design, SoterIA provides a robust framework for detecting, managing, and documenting emergency events.
 
@@ -17,20 +17,31 @@ The foundation of the system is built on **Java Records**, ensuring that emergen
 - **UserData**: Secure storage of user profiles, medical history, and emergency contacts.
 - **EmergencyEvent**: A comprehensive record of a detected crisis, including classification, timestamp, location data, and severity levels.
 
-### 2. Interface Layer (Dependency Inversion)
-Critical infrastructure services are consumed through interfaces so backends can be swapped without touching callers:
-- **AlertService**: Decouples the UI from the underlying notification mechanism.
-- **LocationProvider**: Abstraction for geographic positioning.
+### 2. Port Layer (Dependency Inversion)
+Critical infrastructure services are consumed through **ports** (interfaces in `core.port`) so backends can be swapped without touching callers:
+- **Brain**: Local LLM inference with streaming responses
+- **KnowledgeBase**: Protocol retrieval (Lucene + graph)
+- **Triage**: Emergency classification
+- **STT/TTS**: Speech-to-text and text-to-speech
+- **AlertService**: Emergency alert dispatch
+- **LocationProvider**: GPS/location services
+- **LocalizationService**: i18n for system messages
 
-### 3. Intelligence Layer (RAG Pipeline)
-Offline reasoning is delivered by three coordinated components under `com.soteria.infrastructure.intelligence`:
-- **MedicalKnowledgeBase**: Lucene BM25 retrieval + JGraphT relationship graph over `medical_protocols.json`.
-- **LocalBrainService**: GGUF LLM inference via the **MirceaMihaiBontoi/java-llama.cpp** fork (JNI + Maven Java API `de.kherud:llama`; native from `lib/` or `vendor/java-llama.cpp` build — see `lib/GEMMA4_JLLAMA.txt`).
-- **SherpaSTTService**: Offline speech-to-text via **Sherpa-ONNX** (Whisper Small ASR + Silero VAD), same stack for every LLM profile.
+All ports are interfaces — implementations live in `infrastructure`.
+
+### 3. Intelligence Layer (Offline AI Pipeline)
+Offline reasoning is delivered by seven coordinated subsystems under `com.soteria.infrastructure.intelligence`:
+- **system**: Hardware capability detection, native JNI loading, and audio DSP (AGC, Contextual VAD).
+- **kws**: Always-on wake word detection via **openWakeWord** (ONNX).
+- **stt**: Offline speech-to-text via **Sherpa-ONNX** (Whisper).
+- **triage**: Semantic intent classification via **Llama Embedding** (GGUF).
+- **knowledge**: RAG using Apache Lucene (BM25) and JGraphT over `medical_protocols.json`.
+- **llm**: Reasoning and response generation via **Gemma 4** (llama.cpp).
+- **tts**: Natural text-to-speech synthesis via **Kokoro-82M** (ONNX).
 
 ### 4. Infrastructure Layer (System Implementation)
 Handles the technical details of the environment:
-- **Persistence**: JSON-based storage for the single device-owner profile (`ProfileRepository` → `~/.soteria/profile.json`).
+- **Persistence**: JSON-based storage for the single device-owner profile (`ProfileRepository` → `~/.soteria/profile.json`) and chat history (`ChatSessionRepository` → `~/.soteria/sessions/{id}.json`).
 - **Notification**: Local alert log + simulated emergency-service dispatch (`NotificationAlertService`). Real SMS/call integration is a later phase.
 - **Sensor**: System GPS wrapper (`SystemGPSLocation`) and best-effort device phone number read (`DevicePhoneDetector`).
 - **Bootstrap**: `BootstrapService` orchestrates background downloads, engine loading and a silent LLM warmup turn so the KV cache holds the system prompt before the user's first real message. Exposes observable `statusProperty` / `progressProperty` / `readyProperty` for direct FXML binding.
@@ -79,7 +90,9 @@ Using an "English-Core" reasoning approach for maximum precision:
 
 ### Multimodal Input Handling
 - **Conversational Synthesis**: A guided UX that asks the right questions based on the detected emergency type.
-- **Voice-to-Action**: Real-time offline speech through **Sherpa-ONNX** (mic → VAD → Whisper) for hands-free reporting.
+- **Hands-Free Activation**: Ambient listening via **openWakeWord** to trigger interaction without physical contact.
+- **Voice-to-Action**: Real-time offline speech through **Sherpa-ONNX** (mic → VAD → Whisper) for reporting.
+- **Natural Voice Feedback**: Streaming responses spoken through **Kokoro-82M** for eyes-free guidance.
 
 ### Operational Logging
 Every dispatched alert is appended to `logs/emergency_alerts.log` as a plain-text audit trail. The file is created lazily on first alert.
@@ -88,14 +101,16 @@ Every dispatched alert is appended to `logs/emergency_alerts.log` as a plain-tex
 
 ```text
 com.soteria.core
-├── model              # Immutable records (UserData, EmergencyEvent)
-└── interfaces         # Service contracts (AlertService, LocationProvider)
+├── domain             # Business concepts (chat, protocols)
+├── model              # Real-world entities (UserData, EmergencyEvent)
+├── port               # Service contracts (Brain, KnowledgeBase, Triage, STT, TTS, AlertService, etc.)
+└── exception          # Domain exceptions
 
 com.soteria.infrastructure
 ├── bootstrap          # BootstrapService (background downloads, engine warmup)
-├── intelligence       # STT, LLM, knowledge base, model provisioning
+├── intelligence       # System DSP, KWS, STT, Triage, Knowledge, LLM, TTS
 ├── notification       # NotificationAlertService (log + simulated call)
-├── persistence        # ProfileRepository (device-owner profile.json)
+├── persistence        # ProfileRepository, ChatSessionRepository (JSON storage)
 └── sensor             # SystemGPSLocation, DevicePhoneDetector
 
 com.soteria.ui

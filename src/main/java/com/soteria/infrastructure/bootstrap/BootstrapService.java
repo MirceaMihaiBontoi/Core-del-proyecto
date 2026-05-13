@@ -25,14 +25,21 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Background boot of every heavy runtime component (model downloads, Sherpa-ONNX,
- * Gemma, Lucene/JGraphT knowledge base) so the onboarding screen doubles as
- * a loading screen. By the time the user finishes typing their profile, the
- * chat is typically ready to respond.
+ * Singleton facade that owns the two-phase startup of SoterIA.
  *
- * Exposes observable properties for UI progress and a CompletableFuture
- * for readiness gating. All services are held as singletons; consumers
- * must await {@link #ready()} before accessing them.
+ * <p>{@link #preInitialize()} runs as soon as the application launches: it
+ * detects hardware capabilities and builds the Lucene/JGraphT index so the
+ * onboarding screen doubles as a loading screen. {@link #startProvisioning}
+ * fires when the user confirms their profile and triggers model downloads plus
+ * native-engine initialization.</p>
+ *
+ * <p>Exposes observable properties for direct FXML binding and a
+ * {@link CompletableFuture} so {@code ChatController} can gate on readiness
+ * before enabling the chat UI. All services are held as singletons; callers
+ * must await {@link #ready()} before accessing them.</p>
+ *
+ * @see BootstrapState
+ * @see ProvisioningManager
  */
 public class BootstrapService {
 
@@ -54,16 +61,24 @@ public class BootstrapService {
     private LocalizationService localizationService;
 
     /**
-     * Kicks off hardware detection and local indexing. Does NOT trigger downloads.
+     * Phase 1 of startup: hardware detection and local indexing.
+     *
+     * <p>Loads native libraries, detects system capabilities, and builds the
+     * Lucene/JGraphT protocol index. Leaves {@link ModelManager} ready for
+     * model-availability queries. Does <em>not</em> trigger any network
+     * downloads.</p>
+     *
+     * <p>Must be called before {@link #startProvisioning}. On failure the
+     * progress state reflects the error and {@link #ready()} never completes.</p>
      */
     public void preInitialize() {
         try {
             log.info("Starting pre-initialization...");
-            
+
             // Configure native library paths before any native library usage
             com.soteria.infrastructure.intelligence.system.NativeLibraryLoader.load();
             log.info("Native library paths configured successfully");
-            
+
             localizationService = new ResourceLocalizationService();
             state.update(localizationService.getMessage("onboarding.bootstrap.detecting_hardware"), 0.10);
             capability = new SystemCapability();
@@ -86,8 +101,16 @@ public class BootstrapService {
     }
 
     /**
-     * Starts model downloads and engine initialization based on user preferences.
-     * This ensures that only ONE provisioning process is active.
+     * Phase 2 of startup: model downloads and engine initialization.
+     *
+     * <p>Delegates to {@link ProvisioningManager}, which runs the full
+     * provisioning sequence on a daemon thread. If called before
+     * {@link #preInitialize()}, pre-initialization is triggered automatically.
+     * Repeated calls with the same {@code profile} and {@code language} are
+     * idempotent when provisioning is already in progress or complete.</p>
+     *
+     * @param profile LLM profile selected by the user during onboarding
+     * @param language display-name of the selected language (e.g. {@code "Spanish"}, {@code "English"})
      */
     public void startProvisioning(SystemCapability.AIModelProfile profile, String language) {
         if (modelManager == null) {
@@ -98,9 +121,20 @@ public class BootstrapService {
         provisioningManager.start(state, this, profile, language);
     }
 
+    /**
+     * Returns the future that completes when all services are ready to handle
+     * chat requests.
+     *
+     * <p>Completes exceptionally if provisioning fails. Replaced by a new
+     * future whenever the user changes profile or language during onboarding.</p>
+     *
+     * @return synchronization future; never {@code null}
+     */
     public CompletableFuture<Void> ready() {
         return state.getReadyFuture();
     }
+
+    // Observable properties for FXML binding — contract is self-evident from name and type.
 
     public ReadOnlyStringProperty statusProperty() {
         return state.statusProperty();
@@ -113,6 +147,8 @@ public class BootstrapService {
     public ReadOnlyDoubleProperty progressProperty() {
         return state.progressProperty();
     }
+
+    // Service accessors (port interfaces) — only valid after ready() completes.
 
     public SystemCapability capability() {
         return capability;
@@ -150,9 +186,10 @@ public class BootstrapService {
         return localizationService;
     }
 
-    // Package-private accessors for ProvisioningManager — exposes infra-only
-    // operations (centroid wiring, embedder injection, lifecycle) without
-    // leaking concrete types past the bootstrap boundary.
+    // Package-private accessors for ProvisioningManager — expose concrete infra
+    // types (centroid wiring, embedder injection, lifecycle) without leaking
+    // them past the bootstrap package boundary.
+
     EmergencyKnowledgeBase knowledgeBaseImpl() {
         return knowledgeBase;
     }
@@ -173,7 +210,7 @@ public class BootstrapService {
         return brainService;
     }
 
-    // --- Package-private setters for ProvisioningManager ---
+    // Package-private setters for ProvisioningManager.
 
     void setSttService(SherpaSTTService stt) {
         this.sttService = stt;
@@ -195,12 +232,20 @@ public class BootstrapService {
         this.brainService = brain;
     }
 
+    /**
+     * Stops all active services and terminates the process.
+     *
+     * <p>Calls {@link AutoCloseable#close()} on each service defensively —
+     * individual failures are logged at FINE level and do not interrupt the
+     * rest of the shutdown sequence. Ends with {@link System#exit(int)
+     * System.exit(0)} because native ONNX and llama.cpp threads survive a
+     * normal JVM shutdown and would keep the process alive indefinitely.</p>
+     */
     public void shutdown() {
         log.info("System shutdown initiated. Cleaning up resources...");
 
         provisioningManager.shutdown();
 
-        // Close services safely
         closeService(sttService, "STT");
         closeService(ttsService, "TTS");
         closeService(wakeWordService, "WakeWord");

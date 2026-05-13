@@ -27,6 +27,15 @@ public class GemmaPromptBuilder {
             "\\end_of_turn>",
     };
 
+    /**
+     * Assembles the full inference prompt from conversation history and runtime context.
+     *
+     * <p>The dynamic context (profile + emergency manifest) is injected only into the
+     * <em>last</em> user turn so earlier history turns stay clean and do not inflate the
+     * context window with repeated situational data.</p>
+     *
+     * @param profile may be {@code null}; a generic placeholder is used when absent
+     */
     public String preparePrompt(List<ChatMessage> history, String context, String targetLanguage, UserData profile) {
         String profileContext = (profile != null)
                 ? String.format("USER DATA: Name: %s | Medical Info: %s", profile.fullName(), profile.medicalInfo())
@@ -77,8 +86,15 @@ public class GemmaPromptBuilder {
     }
 
     /**
-     * Gemma 4 layout: system turn first, then alternating user/model turns; generation after final
-     * {@code <start_of_turn>model} with no closing {@code <end_of_turn>}.
+     * Low-level prompt assembler exposed for testing and alternative callers that have already
+     * prepared their own system and context strings.
+     *
+     * <p>Follows the Gemma 4 chat template exactly: {@code system} turn first, then alternating
+     * {@code user}/{@code model} turns. The final turn is left open (no closing
+     * {@code <end_of_turn>}) so llama.cpp begins decoding immediately after it.</p>
+     *
+     * <p>Dynamic context is appended only to the last {@code user} turn; all prior turns
+     * receive only their raw content to avoid context-window bloat.</p>
      */
     public String buildGemmaPrompt(String staticSystem, String dynamicContext, List<ChatMessage> history, String targetLanguage) {
         StringBuilder sb = new StringBuilder();

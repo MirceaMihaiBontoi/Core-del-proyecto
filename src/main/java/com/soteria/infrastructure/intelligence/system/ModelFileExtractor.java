@@ -10,7 +10,11 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Handles extraction of TAR.BZ2 model bundles.
+ * Handles extraction of TAR.BZ2 model bundles (e.g., Sherpa-ONNX distributions).
+ * <p>
+ * Chains multiple large-capacity buffered streams to prevent disk I/O starvation
+ * during the extraction of gigabyte-sized archives.
+ * </p>
  */
 public class ModelFileExtractor {
     private static final Logger logger = Logger.getLogger(ModelFileExtractor.class.getName());

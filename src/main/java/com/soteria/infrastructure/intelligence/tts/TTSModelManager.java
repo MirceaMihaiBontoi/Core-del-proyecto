@@ -7,15 +7,16 @@ import com.soteria.infrastructure.intelligence.system.LanguageUtils;
 import java.nio.file.Path;
 
 /**
- * Manages the lifecycle and configuration of the Sherpa-ONNX TTS model.
- * Handles native library loading and audio synthesis.
- * <p>
- * Kokoro applies {@code setLang} when the native engine is built. If the UI language changes after
- * bootstrap (e.g. Spanish at install, English in settings), the engine must be rebuilt — updating
- * the speaker id alone is not enough for correct pronunciation.
- * </p>
+ * Manages the lifecycle of the Sherpa-ONNX {@link OfflineTts} (Kokoro) engine.
+ *
+ * <p>Kokoro applies {@code setLang} at engine-build time, not per-call. If the
+ * UI language changes after the initial build (e.g. Spanish at install, English
+ * in settings), the entire engine must be rebuilt — updating the speaker ID
+ * alone produces incorrect pronunciation. {@link #ensureEngineLanguage(String)}
+ * performs this check before every synthesis call.</p>
  */
 public class TTSModelManager implements AutoCloseable {
+
     private final Path modelPath;
     private final TTSLogger ttsLogger;
     private OfflineTts offlineTts;
@@ -29,13 +30,15 @@ public class TTSModelManager implements AutoCloseable {
     }
 
     /**
-     * Rebuilds the native engine when the resolved language code differs from the loaded one.
+     * Rebuilds the native engine if the resolved language code differs from the
+     * currently loaded one.
+     *
+     * <p>Called under {@code ttsNativeLock} in {@link SherpaTTSService} before
+     * every {@link #generate} call.</p>
      */
     public synchronized void ensureEngineLanguage(String lang) {
         String code = resolveLanguageCode(lang);
-        if (offlineTts != null && code.equals(loadedEngineLang)) {
-            return;
-        }
+        if (offlineTts != null && code.equals(loadedEngineLang)) return;
         ttsLogger.info("TTS: rebuilding Kokoro engine for language code: " + code);
         rebuildOfflineTts(lang);
     }
@@ -74,7 +77,7 @@ public class TTSModelManager implements AutoCloseable {
             OfflineTtsConfig config = OfflineTtsConfig.builder()
                     .setModel(modelConfig)
                     .setRuleFsts(fstPath)
-                    .setMaxNumSentences(10)  // Increased from 3 to 10 for better prosody planning with lookahead
+                    .setMaxNumSentences(10)
                     .build();
 
             this.offlineTts = new OfflineTts(config);

@@ -6,8 +6,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Utility class for language code normalization and mapping.
- * Primarily used to convert human-readable names (e.g. "Spanish") to ISO codes (e.g. "es").
+ * Bridges the gap between unconstrained language inputs (OS locales, user input)
+ * and the strict ISO-639-1 requirements of acoustic models (e.g., Sherpa-ONNX).
  */
 public class LanguageUtils {
     private static final Logger logger = Logger.getLogger(LanguageUtils.class.getName());
@@ -54,10 +54,14 @@ public class LanguageUtils {
     );
 
     /**
-     * Normalizes a language name or code to a 2-letter ISO-639-1 code.
+     * Resolves an arbitrary language identifier through a 4-tier fallback matrix
+     * (Static Map -> BCP 47 -> Java Locale -> Auto-detect).
+     * <p>
+     * Acoustic engines rely on this returning an empty string when the language is unresolvable
+     * to trigger dynamic language detection during inference.
      *
-     * @param lang The language name (e.g. "Spanish", "Español") or code (e.g. "es").
-     * @return 2-letter ISO code, or empty string if it should be auto-detected by the engine.
+     * @param lang The raw language name or code
+     * @return a strictly formatted 2-letter ISO code, or an empty string to force engine auto-detection
      */
     public static String isoCode(String lang) {
         if (lang == null || lang.isBlank()) {

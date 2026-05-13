@@ -18,11 +18,11 @@ import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
 
 /**
- * Native Emergency Knowledge Base using Apache Lucene (retrieval) and
- * JGraphT (related-protocol discovery). Supports multiple domains including
- * Medical, Fire, Security, Environmental, and Traffic accidents.
+ * Facade for the Intelligence Knowledge Base, orchestrating protocol loading,
+ * graph relationships, Lucene indexing, and semantic retrieval.
  *
- * This class acts as a Facade for the underlying modular components.
+ * <p>Supports multiple emergency domains (Medical, Fire, Security, etc.) and
+ * exposes the {@link KnowledgeBase} port for the application core.</p>
  */
 public class EmergencyKnowledgeBase implements AutoCloseable, KnowledgeBase {
     private static final Logger logger = Logger.getLogger(EmergencyKnowledgeBase.class.getName());
@@ -81,6 +81,12 @@ public class EmergencyKnowledgeBase implements AutoCloseable, KnowledgeBase {
         indexManager.indexProtocols(registry.getProtocols(), semanticEngine);
     }
 
+    /**
+     * Injects an external {@link LlamaModel} (typically from the Triage service)
+     * to share native memory weights.
+     * <p>If semantic vectors or the centroid sidecar are missing/corrupted, this triggers
+     * an atomic rebuild of the Lucene index and the centroid.</p>
+     */
     public synchronized void setEmbedder(LlamaModel embedder) {
         semanticEngine.setEmbedder(embedder);
         logger.info("Shared embedder (soteria-triage-v1) injected into Knowledge Base.");

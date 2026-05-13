@@ -10,16 +10,20 @@ import de.kherud.llama.LlamaModel;
 import de.kherud.llama.LlamaOutput;
 import de.kherud.llama.ModelParameters;
 
-import java.io.OutputStream;
-import java.io.PrintStream;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Local LLM inference service powered by llama.cpp.
- * Orchestrates model lifecycle and execution, delegating formatting and logging.
+ * {@link Brain} port implementation backed by llama.cpp via {@link de.kherud.llama.LlamaModel}.
+ *
+ * <p>Inference runs synchronously on the caller's thread. Cancellation is cooperative:
+ * call {@link #cancel()} from any thread; the current token loop will stop at the next
+ * iteration and finalize callbacks will be skipped.</p>
+ *
+ *
+ * @throws com.soteria.core.exception.AIEngineException if the model file cannot be loaded at construction time
  */
 public class LocalBrainService implements AutoCloseable, Brain {
     private static final Logger logger = Logger.getLogger(LocalBrainService.class.getName());
@@ -56,7 +60,7 @@ public class LocalBrainService implements AutoCloseable, Brain {
                 .setCtxSize(4096)
                 .setThreads(threads)
                 .setThreadsBatch(threads)
-                .setGpuLayers(0); // Force CPU mode to avoid WSL GPU initialization issues
+                .setGpuLayers(0);
 
         logger.info("================ AI ENGINE DASHBOARD ================");
         logger.log(Level.INFO, "  - MODEL:      {0}", modelFile.getFileName());
@@ -115,6 +119,17 @@ public class LocalBrainService implements AutoCloseable, Brain {
         }
     }
 
+    /**
+     * Runs a full inference cycle and delivers results through {@code listener}.
+     *
+     * <p>Resets the cancellation flag on entry. If the model opens its response with
+     * {@code REJECT:}, token streaming is suppressed and
+     * {@link InferenceListener#onAnalysisComplete(String, String)} is called with
+     * {@code "REJECT"} and the extracted reason instead. On any exception,
+     * {@link InferenceListener#onError(Throwable)} is called and no further callbacks fire.</p>
+     *
+     * @param listener receives streaming tokens, the final text, rejection signals, and errors
+     */
     public void generateResponse(List<ChatMessage> history, String context, String targetLanguage,
             com.soteria.core.model.UserData profile, InferenceListener listener) {
         this.isCancelled = false;

@@ -11,7 +11,11 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Handles file-based logging for LLM requests, responses, and conversation history.
+ * File-based diagnostic logger for LLM inference.
+ *
+ * <p>All log files are truncated when {@link #setup()} is called, giving each application
+ * session a clean slate. Write failures are swallowed silently so a logging problem never
+ * interrupts inference.</p>
  */
 public class LLMLogger {
     private static final Logger logger = Logger.getLogger(LLMLogger.class.getName());
@@ -46,6 +50,11 @@ public class LLMLogger {
         appendToFile("logs/ai_conversation.log", text + "\n");
     }
 
+    /**
+     * Appends a timestamped entry to a file under {@code logs/raw_llm/}.
+     *
+     * @param fileName file name only (no path); resolved relative to {@code logs/raw_llm/}
+     */
     public void logRaw(String fileName, String content) {
         String time = LocalDateTime.now().format(TIME_FORMATTER);
         String entry = String.format(
@@ -60,6 +69,11 @@ public class LLMLogger {
         logRaw("inference_requests.log", log);
     }
 
+    /**
+     * Appends a completed-inference summary to {@code logs/ai_conversation.log}.
+     *
+     * @param ttft time-to-first-token in milliseconds; the latency line is omitted when {@code ttft <= 0}
+     */
     public void logInferenceFinished(String header, String text, long ttft) {
         logChatMessage("--- INFERENCE COMPLETED ---");
         if (ttft > 0) {

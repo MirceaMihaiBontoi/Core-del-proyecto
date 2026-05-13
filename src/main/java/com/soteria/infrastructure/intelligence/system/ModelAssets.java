@@ -1,8 +1,12 @@
 package com.soteria.infrastructure.intelligence.system;
 
 /**
- * Constants and asset definitions for AI models used in the system.
- * This class centralizes all external URLs and internal file names to ensure consistency.
+ * Centralized registry for all AI model assets, decoupling hardcoded URLs and filenames
+ * from the downloading and loading logic.
+ * <p>
+ * Ensures consistency across the system and provides fallback URIs (e.g., public HuggingFace
+ * models) if proprietary fine-tuned models are unavailable.
+ * </p>
  */
 public final class ModelAssets {
     private ModelAssets() {

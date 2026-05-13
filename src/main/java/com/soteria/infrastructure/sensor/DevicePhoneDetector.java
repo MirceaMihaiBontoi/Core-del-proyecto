@@ -9,18 +9,19 @@ import java.util.logging.Logger;
 /**
  * Best-effort read of the device's own phone number.
  *
- * Windows: no public API to get a user phone number from a laptop SIM-less
- * device; we try WMI for modem-based devices and otherwise return UNKNOWN.
+ * <p>On Windows, queries WMI for modem-based mobile broadband devices.
+ * Most desktops and laptops have no such hardware, so {@link #UNKNOWN} is
+ * the common result. On Android (future), will delegate to
+ * {@code TelephonyManager.getLine1Number()} once the native bridge is wired.
+ * On Linux, no telephony API is available.</p>
  *
- * Android (future): will read TelephonyManager.getLine1Number() once the
- * mobile bridge is wired up.
- *
- * All callers must treat the result as possibly UNKNOWN — the field exists
- * for display and as a hand-off to 112 operators; it is NOT required to
- * complete onboarding.
+ * <p>All callers must treat the result as possibly {@link #UNKNOWN} — the
+ * phone number is used for display and as a hand-off hint to 112 operators;
+ * it is not required to complete onboarding.</p>
  */
 public final class DevicePhoneDetector {
 
+    /** Sentinel returned when the phone number cannot be determined. */
     public static final String UNKNOWN = "Unknown";
 
     private static final Logger log = Logger.getLogger(DevicePhoneDetector.class.getName());
@@ -31,6 +32,10 @@ public final class DevicePhoneDetector {
         return detect(System.getProperty("os.name", ""));
     }
 
+    /**
+     * Overload that accepts an explicit OS name string, used by tests to
+     * exercise platform branches without spawning real subprocesses.
+     */
     static String detect(String osName) {
         String os = osName.toLowerCase(Locale.ROOT);
         if (os.contains("android")) {
@@ -41,8 +46,7 @@ public final class DevicePhoneDetector {
             return detectWindows();
         }
         if (os.contains("linux")) {
-            // Linux desktops typically do not have telephony hardware.
-            // Return UNKNOWN without attempting detection.
+            // Linux desktops have no telephony hardware; skip detection entirely.
             return UNKNOWN;
         }
         return UNKNOWN;
@@ -50,8 +54,7 @@ public final class DevicePhoneDetector {
 
     private static String detectWindows() {
         // Targets USB/integrated mobile broadband modems. Most desktops/laptops
-        // won't have one, in which case the WMI query returns nothing and we
-        // fall through to UNKNOWN.
+        // won't have one — the WMI query returns nothing and we fall through to UNKNOWN.
         String psCommand =
                 "$ErrorActionPreference='SilentlyContinue'; " +
                 "$m = Get-CimInstance -Namespace root\\cimv2\\mdm -ClassName MDM_RemoteAccess_NumericAddress 2>$null; " +

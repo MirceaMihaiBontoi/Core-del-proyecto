@@ -14,7 +14,11 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Manages the loading and storage of emergency protocols from JSON files.
+ * Thread-safe registry that loads and caches emergency protocols from JSON files.
+ * 
+ * <p>It uses an {@code index.json} manifest file located in the target directory
+ * to discover which JSON files to parse, enabling flexible additions of protocol
+ * categories without code changes.</p>
  */
 public class ProtocolRegistry {
     private static final Logger logger = Logger.getLogger(ProtocolRegistry.class.getName());
@@ -28,6 +32,10 @@ public class ProtocolRegistry {
         this.protocolsPath = protocolsPath;
     }
 
+    /**
+     * Clears the current cache and reads the manifest ({@code index.json}) from the configured
+     * classpath directory, parsing all listed JSON files into the registry.
+     */
     public void loadProtocols() {
         try {
             logger.log(Level.INFO, "Loading protocols from classpath: {0}", protocolsPath);

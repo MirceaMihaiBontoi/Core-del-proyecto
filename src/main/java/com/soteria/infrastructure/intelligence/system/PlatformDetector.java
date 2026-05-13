@@ -5,9 +5,11 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Detects the host operating system and architecture at runtime.
+ * Detects the host operating system and architecture at runtime to determine
+ * which native binary extensions (.dll or .so) and paths to resolve.
  * <p>
- * Provides platform identification for native library loading and system-specific behavior.
+ * This normalizes common architectures (e.g. amd64/x86_64 to x64) to ensure
+ * consistency when querying the packaged native resources.
  * </p>
  */
 public final class PlatformDetector {
@@ -21,11 +23,6 @@ public final class PlatformDetector {
         // Prevent instantiation
     }
     
-    /**
-     * Detects the operating system.
-     *
-     * @return "windows", "linux", or "unknown"
-     */
     public static String detectOS() {
         if (OS_NAME.contains("win")) {
             return "windows";
@@ -36,11 +33,6 @@ public final class PlatformDetector {
         }
     }
     
-    /**
-     * Detects the system architecture.
-     *
-     * @return normalized architecture string ("x64", "arm64", etc.)
-     */
     public static String detectArchitecture() {
         // Normalize common architecture names
         if (OS_ARCH.equals("amd64") || OS_ARCH.equals("x86_64")) {
@@ -52,11 +44,6 @@ public final class PlatformDetector {
         }
     }
     
-    /**
-     * Returns the platform identifier for library path resolution.
-     *
-     * @return "windows" or "linux"
-     */
     public static String getPlatformIdentifier() {
         String os = detectOS();
         logger.log(Level.CONFIG, "Detected platform: {0}, architecture: {1}", 
@@ -64,11 +51,6 @@ public final class PlatformDetector {
         return os;
     }
     
-    /**
-     * Returns the native library file extension for the current platform.
-     *
-     * @return ".dll" for Windows, ".so" for Linux
-     */
     public static String getLibraryExtension() {
         String os = detectOS();
         switch (os) {
