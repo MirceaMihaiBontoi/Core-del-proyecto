@@ -8,16 +8,25 @@ import com.soteria.core.port.Triage;
 import java.util.List;
 
 /**
- * Handles the construction of the RAG context and protocol manifests for the LLM.
+ * Builds the contextual query string and {@code PROTOCOL_MANIFEST} block passed to {@link com.soteria.core.port.Brain}.
+ *
+ * <p>Keeps the active emergency protocol visible in RAG results via {@link #applyStickyContext} when the session
+ * is locked on a protocol id. Step slices for the manifest come from {@link com.soteria.core.domain.chat.ChatSession#getRequestedStepsMap()}.</p>
+ *
+ * <p>Spec: {@code com.soteria.application.chat._chat.spec.md}.</p>
  */
 public class RAGContextBuilder {
 
     private final KnowledgeBase knowledgeBase;
 
+    /**
+     * @param knowledgeBase source for {@link #getProtocolById} and RAG matches used by {@link com.soteria.application.chat.InferenceEngine}
+     */
     public RAGContextBuilder(KnowledgeBase knowledgeBase) {
         this.knowledgeBase = knowledgeBase;
     }
 
+    /** @return prior categorized user lines concatenated with {@code message} for retrieval/triage */
     public String prepareContextualQuery(String message, ChatSession session) {
         StringBuilder sb = new StringBuilder();
         if (session.getCategorizedContext() != null) {
@@ -27,6 +36,10 @@ public class RAGContextBuilder {
         return sb.toString() + message;
     }
 
+    /**
+     * If {@link ChatSession#getActiveEmergencyId()} is set but absent from {@code results}, prepends that protocol
+     * (label {@code PERSISTENT}) so the manifest still contains the locked scenario.
+     */
     public void applyStickyContext(List<KnowledgeBase.ProtocolMatch> results, ChatSession session) {
         String activeId = session.getActiveEmergencyId();
         if (activeId == null) return;
@@ -40,6 +53,9 @@ public class RAGContextBuilder {
         }
     }
 
+    /**
+     * @return prompt prefix starting with {@code PROTOCOL_MANIFEST:}, or a short fallback when no protocols matched
+     */
     public String buildProtocolManifest(List<KnowledgeBase.ProtocolMatch> results, ChatSession session, Triage.Intent intent) {
         if (results.isEmpty()) {
             if (intent == Triage.Intent.GREETING_OR_CASUAL) {
@@ -101,6 +117,7 @@ public class RAGContextBuilder {
         }
     }
 
+    /** Maps triage intent to the key used in {@link ChatSession#getCategorizedContext()}. */
     public String getEmergencyCategory(Triage.Intent intent) {
         if (intent == null) return "GENERAL";
         return switch (intent) {

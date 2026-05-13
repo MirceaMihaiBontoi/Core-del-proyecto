@@ -28,6 +28,8 @@ See `_domain.spec.md`, `_model.spec.md`, and `_port.spec.md` for details on each
 4. `Brain` generates a response using the protocol as context
 5. Response arrives via `BrainCallback` → added to `ChatSession`
 
+Application-layer chat turn (`InferenceEngine`, manifest, history trim, sentence splitting for TTS): `../application/chat/_chat.spec.md`.
+
 ### Emergency detection and dispatch
 
 1. `Triage` detects an emergency (score ≥ 0.30)

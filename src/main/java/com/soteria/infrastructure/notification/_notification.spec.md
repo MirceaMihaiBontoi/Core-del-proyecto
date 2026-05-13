@@ -36,3 +36,8 @@ notification/
   Using plain text appended to `logs/emergency_alerts.log` offers an easily auditable trail of events that survives application restarts, without requiring a database.
 - **Internal Constructors for Tests:**
   `NotificationAlertService` accepts a `Path` in a package-private constructor, allowing unit tests to direct writes to temporary files instead of polluting the developer's root directory.
+
+## See also
+
+- `AlertService` port: `../../core/port/_port.spec.md`
+- UI SOS dispatch: `../../ui/chat/_chat.spec.md` (`ChatEmergencyDispatch`)

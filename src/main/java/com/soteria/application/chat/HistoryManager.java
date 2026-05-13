@@ -9,10 +9,19 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Manages the relevance and filtering of chat history to optimize context limit.
+ * Truncates {@link com.soteria.core.domain.chat.ChatMessage} history before {@link com.soteria.core.port.Brain#chat}
+ * by keeping recent turns and user lines tied to the current query or emergency categories.
+ *
+ * <p>Spec: {@code com.soteria.application.chat._chat.spec.md}.</p>
  */
 public class HistoryManager {
 
+    /**
+     * @param history       full session transcript (mutable list is not modified)
+     * @param currentQuery  latest user utterance for this turn
+     * @param session       provides {@link ChatSession#getCategorizedContext()} for relevance
+     * @return messages to pass to the brain — never empty (at least a synthetic user line for {@code currentQuery})
+     */
     public List<ChatMessage> filterRelevantHistory(List<ChatMessage> history, String currentQuery, ChatSession session) {
         final List<ChatMessage> filtered = new ArrayList<>();
         final Set<String> relevantTurns = new HashSet<>();

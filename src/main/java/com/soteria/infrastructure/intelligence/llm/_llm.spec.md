@@ -175,3 +175,10 @@ Prompt formatting is complex and model-specific. Extracting it makes `LocalBrain
 
 **Why file-based logging?**
 LLM debugging requires inspecting raw prompts and responses. File logs persist across sessions and can be analyzed offline.
+
+## See also
+
+- Thread budgets / hardware: `../system/_system.spec.md`
+- Intelligence overview: `../_intelligence.spec.md`
+- `Brain` port: `../../../core/port/_port.spec.md`
+- Orchestrates `Brain.chat` per turn: `../../../application/chat/_chat.spec.md` (`InferenceEngine`)

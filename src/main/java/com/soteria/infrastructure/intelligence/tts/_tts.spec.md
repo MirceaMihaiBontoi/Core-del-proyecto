@@ -129,3 +129,9 @@ line eliminates those gaps.
 PCM chunks from consecutive synthesis calls rarely end and start at zero
 amplitude. Without crossfading, the discontinuity produces an audible click.
 A 30 ms linear crossfade is imperceptible but eliminates the artifact.
+
+## See also
+
+- Streaming tokens usually originate from LLM output: `../llm/_llm.spec.md`
+- Intelligence overview: `../_intelligence.spec.md`
+- Speakable sentence chunks from the app layer: `../../../application/chat/_chat.spec.md` (`SentenceSplitter` → TTS)

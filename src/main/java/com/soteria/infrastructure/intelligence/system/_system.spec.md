@@ -211,3 +211,8 @@ Modifying `java.library.path` at runtime via reflection is unsupported in modern
 
 ### Why in-place array mutation in `AudioPreProcessor`?
 The capture thread generates a new 16kHz audio frame every few milliseconds. Allocating new `float[]` arrays for every DSP step (gate, compression, EQ) would flood the Garbage Collector, causing micro-stutters that desynchronize the audio stream. In-place mutation ensures zero allocations in the hot path.
+
+## See also
+
+- Provisioning and `SystemCapability` consumer: `../../bootstrap/_bootstrap.spec.md`
+- Voice pipeline overview: `../_intelligence.spec.md`

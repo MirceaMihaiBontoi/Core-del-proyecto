@@ -29,6 +29,8 @@ Critical infrastructure services are consumed through **ports** (interfaces in `
 
 All ports are interfaces — implementations live in `infrastructure`.
 
+**Application layer:** `com.soteria.application` composes ports into product flows (no JavaFX). Example: chat turn orchestration in `application/chat` (`InferenceEngine`, RAG manifest, history trimming, streaming TTS sentences) — `src/main/java/com/soteria/application/chat/_chat.spec.md`.
+
 ### 3. Intelligence Layer (Offline AI Pipeline)
 Offline reasoning is delivered by seven coordinated subsystems under `com.soteria.infrastructure.intelligence`:
 - **system**: Hardware capability detection, native JNI loading, and audio DSP (AGC, Contextual VAD).
@@ -47,7 +49,7 @@ Handles the technical details of the environment:
 - **Bootstrap**: `BootstrapService` orchestrates background downloads, engine loading and a silent LLM warmup turn so the KV cache holds the system prompt before the user's first real message. Exposes observable `statusProperty` / `progressProperty` / `readyProperty` for direct FXML binding.
 
 ### 5. UI Layer (Reactive Interface)
-JavaFX + **AtlantaFX PrimerDark** theme with a thin overrides stylesheet (`main.css`). No login screen — SoterIA is single-user by design. Package-level documentation for contributors lives in `src/main/java/com/soteria/ui/_ui.spec.md` (with `_chat.spec.md`, `_onboarding.spec.md`, `_view.spec.md`, `_i18n.spec.md` under each subpackage).
+JavaFX + **AtlantaFX PrimerDark** theme with a thin overrides stylesheet (`main.css`). No login screen — SoterIA is single-user by design. Package-level documentation for contributors: `src/main/java/com/soteria/ui/_ui.spec.md` (JavaFX), `src/main/java/com/soteria/application/chat/_chat.spec.md` (chat inference pipeline), plus `_chat.spec.md`, `_onboarding.spec.md`, `_view.spec.md`, `_i18n.spec.md` under each UI subpackage.
 - **Onboarding wizard** (`OnboardingController` + `onboarding-view.fxml`): step 1 picks the on-device Gemma 4 profile (RAM-based *Recommended* tag and weight in GB) and language (pre-selected from GPS/locale, English fallback). Step 2 captures the emergency profile. An installation overlay covers the gap if downloads aren't finished when the user submits.
 - **Chat screen** (`ChatController` + `chat-view.fxml`): conversation with text + voice input, rendered as custom bubbles on top of the PrimerDark base.
 - **Asynchronous Execution**: All I/O and LLM/STT calls run on worker threads; the FX thread only touches the scene graph.
@@ -104,6 +106,9 @@ com.soteria.core
 ├── port               # Service contracts (Brain, KnowledgeBase, Triage, STT, TTS, AlertService, etc.)
 └── exception          # Domain exceptions
 
+com.soteria.application
+└── chat               # InferenceEngine — see chat/_chat.spec.md
+
 com.soteria.infrastructure
 ├── bootstrap          # BootstrapService (background downloads, engine warmup)
 ├── intelligence       # System DSP, KWS, STT, Triage, Knowledge, LLM, TTS
@@ -119,6 +124,8 @@ com.soteria.ui
 ├── i18n/              # UiLocales (language label → java.util.Locale)
 └── _ui.spec.md        # UI layer map; per-package specs: chat/, onboarding/, view/, i18n/
 ```
+
+Contributor maps: `src/main/java/com/soteria/application/chat/_chat.spec.md` (chat pipeline), `src/main/java/com/soteria/ui/_ui.spec.md` (JavaFX shell).
 
 ## System Implementation Standards
 

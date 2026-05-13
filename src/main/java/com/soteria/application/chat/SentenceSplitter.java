@@ -1,10 +1,16 @@
 package com.soteria.application.chat;
 
 /**
- * Logic for splitting real-time LLM token stream into natural sentences for TTS.
+ * Incrementally splits the assistant token stream into speakable sentences for streaming TTS.
+ *
+ * <p>Prefers low latency (commas and length heuristics) while avoiding tiny fragments where possible.
+ * Callers should pass {@code isFinal=true} on the last chunk to flush the tail. Use {@link #reset()} between replies.</p>
+ *
+ * <p>Spec: {@code com.soteria.application.chat._chat.spec.md}.</p>
  */
 public class SentenceSplitter {
 
+    /** Called for each completed sentence segment in order. */
     public interface SentenceListener {
         void onSentenceReady(String sentence);
     }
@@ -12,6 +18,13 @@ public class SentenceSplitter {
     private int lastTTSSentenceEnd = 0;
     private int sentenceCount = 0;
 
+    /**
+     * Scans {@code fullText} for boundaries after the last emitted sentence and invokes {@code listener} for each new segment.
+     *
+     * @param fullText accumulated assistant text so far
+     * @param isFinal  {@code true} on the closing callback to flush remaining text without waiting for more tokens
+     * @param listener receives non-empty trimmed sentences
+     */
     public void process(String fullText, boolean isFinal, SentenceListener listener) {
         String remaining = fullText.substring(lastTTSSentenceEnd);
 
@@ -170,10 +183,12 @@ public class SentenceSplitter {
         return cp == ',' || cp == '\uFF0C' || cp == '\u3001';
     }
 
+    /** @return number of sentences emitted since construction or last {@link #reset()} */
     public int getSentenceCount() {
         return sentenceCount;
     }
 
+    /** Clears streaming cursor and sentence count for a new assistant reply. */
     public void reset() {
         lastTTSSentenceEnd = 0;
         sentenceCount = 0;

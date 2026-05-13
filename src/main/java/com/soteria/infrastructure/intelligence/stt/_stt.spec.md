@@ -163,3 +163,9 @@ less than ~0.3–0.5 s of audio. The 0.6 s threshold provides a conservative mar
 ### Why Contextual VAD (2-of-3) instead of raw Silero?
 Silero occasionally fires on transient noise. Requiring a majority across 3 consecutive
 frames eliminates most single-frame false positives without meaningful latency impact.
+
+## See also
+
+- Wake word hands off to active listening: `../kws/_kws.spec.md`
+- DSP / VAD context: `../system/_system.spec.md`
+- Intelligence overview: `../_intelligence.spec.md`

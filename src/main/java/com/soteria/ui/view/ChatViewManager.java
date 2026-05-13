@@ -39,11 +39,17 @@ public class ChatViewManager {
         Label subtitleLabel,
         Label partialTranscriptLabel,
         Label aiStatusLabel,
-        Circle statusDot
+        Circle statusDot,
+        VBox voiceCenter
     ) {}
 
     private static final Logger logger = Logger.getLogger(ChatViewManager.class.getName());
     private final String instanceId = "ChatViewManager-" + UUID.randomUUID().toString().substring(0, 8);
+
+    /**
+     * Pixels to move {@link UIComponents#voiceCenter} up while the chat sheet is open so the face stays above the overlay.
+     */
+    private static final double VOICE_CENTER_SHIFT_SHEET_OPEN = -96;
 
     private static final String CLASS_BOT_BUBBLE = "chat-bubble-bot";
     private static final String CLASS_USER_BUBBLE = "chat-bubble-user";
@@ -248,7 +254,9 @@ public class ChatViewManager {
         Timeline tl = new Timeline(
                 new KeyFrame(Duration.millis(240),
                         new KeyValue(ui.chatSheet().translateYProperty(), 0, Interpolator.EASE_OUT),
-                        new KeyValue(ui.chatSheet().opacityProperty(), 1, Interpolator.EASE_OUT)));
+                        new KeyValue(ui.chatSheet().opacityProperty(), 1, Interpolator.EASE_OUT),
+                        new KeyValue(ui.voiceCenter().translateYProperty(), VOICE_CENTER_SHIFT_SHEET_OPEN,
+                                Interpolator.EASE_OUT)));
         tl.play();
     }
 
@@ -260,7 +268,8 @@ public class ChatViewManager {
                         new KeyValue(ui.chatSheet().translateYProperty(),
                                 ui.chatSheet().getHeight() > 0 ? ui.chatSheet().getHeight() : 520,
                                 Interpolator.EASE_IN),
-                        new KeyValue(ui.chatSheet().opacityProperty(), 0, Interpolator.EASE_IN)));
+                        new KeyValue(ui.chatSheet().opacityProperty(), 0, Interpolator.EASE_IN),
+                        new KeyValue(ui.voiceCenter().translateYProperty(), 0, Interpolator.EASE_IN)));
         tl.setOnFinished(e -> {
             ui.chatSheet().setVisible(false);
             ui.chatSheet().setManaged(false);

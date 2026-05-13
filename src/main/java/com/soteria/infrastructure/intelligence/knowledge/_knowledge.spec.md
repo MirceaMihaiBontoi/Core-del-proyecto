@@ -82,3 +82,10 @@ The central entry point implementing the `KnowledgeBase` port.
 *   **Model Cohesion:** Exposes `setEmbedder(LlamaModel)` to receive the `soteria-triage-v1` instance from the `TriageService`. This centralizes the intelligence core, ensuring that classification and retrieval are two facets of the same semantic model rather than independent processes.
 *   **Auto-Recovery:** If the injected embedder detects missing vectors or a corrupted centroid, it triggers an atomic rebuild of the Lucene index.
 *   **Diagnostics:** Maintains a dedicated `kb_diagnostics.log` file, gracefully cleaning up `.lck` files from crashed runs.
+
+## See also
+
+- Shared embedder wiring with triage: `../triage/_triage.spec.md`
+- Intelligence overview: `../_intelligence.spec.md`
+- `KnowledgeBase` port: `../../../core/port/_port.spec.md`
+- Caller that builds the RAG manifest from search results: `../../../application/chat/_chat.spec.md` (`RAGContextBuilder`)

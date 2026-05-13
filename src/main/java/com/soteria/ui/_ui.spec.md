@@ -20,7 +20,8 @@ FXML, CSS, and image assets live under `src/main/resources` (`fxml/`, `styles/`,
 
 Package-level detail:
 
-- **`_chat.spec.md`** — `ChatController` lifecycle, voice/text, settings, SOS, helpers (`ChatOutboundDedupe`, `ChatSTTListenerFactory`, …).
+- **`../application/chat/_chat.spec.md`** — `InferenceEngine`, RAG manifest, history filter, streaming TTS sentence split.
+- **`_chat.spec.md`** — `ChatController` lifecycle, voice/text, settings, SOS, UI helpers (`ChatOutboundDedupe`, `ChatSTTListenerFactory`, …).
 - **`_onboarding.spec.md`** — wizard steps, provisioning triggers, `OnboardingLanguageCatalog`.
 - **`_view.spec.md`** — `ChatViewManager`, `SessionCoordinator`, `SoterIAFace`.
 - **`_i18n.spec.md`** — `UiLocales` and bundle naming.

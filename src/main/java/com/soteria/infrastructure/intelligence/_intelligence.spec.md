@@ -52,3 +52,8 @@ See `_system.spec.md`, `_kws.spec.md`, `_stt.spec.md`, `_triage.spec.md`, `_know
 - `stt` and `llm` must respect thread budgets assigned by `SystemCapability` to prevent thermal throttling
 - `system` (`NativeLibraryLoader`) must load base C++ binaries before any other module instantiates an engine
 - All ML models (Whisper, Gemma, Kokoro) must properly release native resources via `AutoCloseable` to prevent memory leaks
+
+## See also
+
+- Startup wiring of engines: `../../bootstrap/_bootstrap.spec.md`
+- Hardware + native loading prelude: `system/_system.spec.md`

@@ -35,3 +35,8 @@ sensor/
   Location and phone numbers are enrichment data. Returning a sentinel keeps callers simple, preventing the emergency flow from halting or forcing the UI to handle `Optional` unwraps for non-critical data.
 - **Why detect primary language?**
   `SystemGPSLocation` implements `detectPrimaryLanguage()` mapped to geographic bounding boxes. This helps `OnboardingController` pre-select the appropriate locale UI.
+
+## See also
+
+- `LocationProvider` contract: `../../core/port/_port.spec.md`
+- Onboarding uses GPS language hint: `../../ui/onboarding/_onboarding.spec.md`

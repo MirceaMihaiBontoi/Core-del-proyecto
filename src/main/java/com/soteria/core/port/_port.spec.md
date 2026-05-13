@@ -6,6 +6,8 @@ A port is an interface defined in the core that describes what the system needs 
 
 This keeps the dependency arrow pointing inward: infrastructure depends on core, never the reverse.
 
+**Typical composer of several ports for one product flow:** `com.soteria.application.chat.InferenceEngine` (bundles `KnowledgeBase`, `Triage`, and `Brain` for each user turn — see `../application/chat/_chat.spec.md`).
+
 ## Ports
 
 ### `AlertService` — emergency alert dispatch

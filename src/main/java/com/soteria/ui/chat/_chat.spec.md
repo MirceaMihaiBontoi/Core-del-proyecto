@@ -150,4 +150,4 @@ FX thread only. **`apply(Request)`**: hide panel when no active protocol; else r
 
 **Why idle chain?** Face/state updates after TTS must not race `stop()`; serialize after silence detection.
 
-See also: **`_ui.spec.md`** (app routing), **`_view.spec.md`** (bubbles, sessions, face geometry).
+See also: **`_ui.spec.md`** (app routing), **`_view.spec.md`** (bubbles, sessions, face geometry), **`../../application/chat/_chat.spec.md`** (triage → RAG manifest → Brain turn, history filter, sentence splitting).

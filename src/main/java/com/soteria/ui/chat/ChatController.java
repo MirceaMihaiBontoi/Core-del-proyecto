@@ -80,6 +80,7 @@ public class ChatController {
     @FXML
     private ResourceBundle resources;
     @FXML private StackPane faceHolder;
+    @FXML private VBox voiceCenter;
     @FXML private Label brandLabel;
     @FXML private Label subtitleLabel;
     @FXML private Label partialTranscriptLabel;
@@ -207,7 +208,7 @@ public class ChatController {
 
         ChatViewManager.UIComponents ui = new ChatViewManager.UIComponents(
             chatMessages, chatScrollPane, chatSheet, subtitleLabel,
-            partialTranscriptLabel, aiStatusLabel, statusDot
+            partialTranscriptLabel, aiStatusLabel, statusDot, voiceCenter
         );
         viewManager = new ChatViewManager(ui);
         sessionCoordinator = new SessionCoordinator(sessionList, historySidebar);

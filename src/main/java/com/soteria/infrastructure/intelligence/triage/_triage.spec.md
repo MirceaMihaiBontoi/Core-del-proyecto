@@ -233,3 +233,10 @@ for within-category disambiguation.
 Users frequently prefix queries with the wake word (`"Soteria, hay fuego en la cocina"`).
 Including the name in the embedding adds noise that pulls the input vector toward unrelated
 documents mentioning safety/security in abstract contexts, degrading recall.
+
+## See also
+
+- Retrieval shares the triage embedding model via `KnowledgeBase.setEmbedder`: `../knowledge/_knowledge.spec.md`
+- Intelligence overview: `../_intelligence.spec.md`
+- `Triage` port: `../../../core/port/_port.spec.md`
+- Dynamic classify caller: `../../../application/chat/_chat.spec.md` (`InferenceEngine`)

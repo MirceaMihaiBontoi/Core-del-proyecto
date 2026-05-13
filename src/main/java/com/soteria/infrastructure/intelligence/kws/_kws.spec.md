@@ -163,3 +163,9 @@ shutdown() / close()
 | `TargetDataLine line` race | Mutable field written by the capture thread and read by `stopListening()` (any thread). A concurrent restart during device acquisition could see the old reference. |
 | Duplicate keyword entry | `s o t e r i a` appears twice (`@0.015` and `@0.01`). Behavior of the native parser on duplicates is unspecified. |
 | Synchronous disk writes | `logVoice()` writes to disk on the audio thread every ~2 s and on every hit. May introduce jitter on slow storage. |
+
+## See also
+
+- Active listening / transcription: `../stt/_stt.spec.md`
+- Audio capture + DSP: `../system/_system.spec.md`
+- Intelligence overview: `../_intelligence.spec.md`

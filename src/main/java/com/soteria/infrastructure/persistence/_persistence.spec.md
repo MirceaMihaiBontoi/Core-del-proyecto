@@ -37,3 +37,7 @@ persistence/
   Ensures forward-compatibility: profiles written by a newer version of the app can be read by older builds without throwing deserialization exceptions.
 - **Dependency Isolation:** 
   Depends strictly on `core.model` and `core.domain`, completely unaware of `bootstrap`, `ui`, or `application`. Jackson is isolated inside this package.
+
+## See also
+
+- Chat session / message shapes persisted here: `../../core/domain/_domain.spec.md` (`chat` package)

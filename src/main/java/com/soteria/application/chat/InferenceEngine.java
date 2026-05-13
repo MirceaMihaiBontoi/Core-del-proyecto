@@ -16,8 +16,16 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Orchestrates the flow for RAG, Triage, and LLM inference.
- * Delegates specialized logic to ContextBuilder, HistoryManager, and SentenceSplitter.
+ * Orchestrates a single user turn: RAG retrieval, triage, {@code PROTOCOL_MANIFEST} assembly,
+ * history trimming, and streaming {@link Brain#chat} with callbacks for UI and TTS.
+ *
+ * <p>Delegates to {@link RAGContextBuilder}, {@link HistoryManager}, and {@link SentenceSplitter}.
+ * The presentation layer passes an {@link UIUpdateListener} — usually
+ * {@link com.soteria.ui.chat.ChatInferenceUiBridge} — and may wrap calls with
+ * {@link #runInference(String, ChatSession, UserData, String, UIUpdateListener, AtomicLong, long)}
+ * so superseded runs drop callbacks after {@link com.soteria.ui.chat.ChatController} bumps the generation counter.</p>
+ *
+ * <p>Behavior map: {@code com.soteria.application.chat._chat.spec.md}.</p>
  */
 public class InferenceEngine {
     private static final Logger logger = Logger.getLogger(InferenceEngine.class.getName());
@@ -30,6 +38,10 @@ public class InferenceEngine {
     private final RAGContextBuilder contextBuilder;
     private final HistoryManager historyManager;
 
+    /**
+     * Receives partial/final model output, protocol status, and TTS-sized sentences. Implementations
+     * must tolerate calls from non-FX threads except where they already marshal to the FX thread.
+     */
     public interface UIUpdateListener {
         void onSubtitleUpdate(String text);
         void onFaceStateChange(String state);
@@ -38,6 +50,11 @@ public class InferenceEngine {
         void onSpeakSentence(String sentence, String language);
     }
 
+    /**
+     * @param triage triage port (typically semantic classifier over protocol candidates)
+     * @param brain  streaming LLM port
+     * @param kb     knowledge base for protocol search and sticky lookup
+     */
     public InferenceEngine(Triage triage, Brain brain, KnowledgeBase kb) {
         this.triageService = triage;
         this.brainService = brain;
@@ -47,20 +64,21 @@ public class InferenceEngine {
     }
 
     /**
-     * @param inferenceGeneration incremented on bump-in / cancel — callbacks are dropped once it changes
-     * @param correlationId       value observed after scheduling this run ({@code inferenceGeneration#get()})
+     * Runs the full inference pipeline once, forwarding UI events only while {@code correlationId}
+     * still matches {@code inferenceGeneration} (see {@link #cancel()} and UI generation bumps).
+     *
+     * @param message               latest user text for this turn
+     * @param session               mutable session (protocol id, categorized context, messages)
+     * @param user                  profile passed to the brain
+     * @param language              target language label for generation/TTS
+     * @param listener              HUD / TTS callbacks (often gated)
+     * @param inferenceGeneration   counter incremented when the user interrupts; callbacks are delivered only while {@code inferenceGeneration.get() == correlationId}
+     * @param correlationId         value of {@code inferenceGeneration.get()} captured when this run was scheduled
      */
     public void runInference(String message, ChatSession session, UserData user, String language,
             UIUpdateListener listener, AtomicLong inferenceGeneration, long correlationId) {
         UIUpdateListener gated = InferenceUiGate.gate(listener, inferenceGeneration, correlationId);
         runInferenceFlowInternal(message, session, user, language, gated, 1);
-    }
-
-    /** @deprecated Prefer {@link #runInference(String, ChatSession, UserData, String, UIUpdateListener, AtomicLong, long)}. */
-    @Deprecated(forRemoval = false)
-    public void runInference(String message, ChatSession session, UserData user, String language,
-            UIUpdateListener listener) {
-        runInferenceFlowInternal(message, session, user, language, listener, 1);
     }
 
     private void runInferenceFlowInternal(String message, ChatSession session, UserData user, String language,
@@ -206,6 +224,7 @@ public class InferenceEngine {
         }
     }
 
+    /** Stops an in-flight {@link Brain#chat} generation. */
     public void cancel() {
         if (this.brainService != null) {
             this.brainService.cancel();
@@ -213,7 +232,10 @@ public class InferenceEngine {
     }
 
     /**
-     * Drops UI updates emitted after inference was superseded ({@link ChatController}'s inference generation bumped).
+     * Wraps a {@link UIUpdateListener} so that updates are ignored after the UI invalidates this run
+     * (generation counter advanced past {@code correlationId}).
+     *
+     * @see com.soteria.ui.chat.ChatController#interruptOngoingGeneration()
      */
     private static final class InferenceUiGate {
         private InferenceUiGate() {}

@@ -113,3 +113,9 @@ llama.cpp builds the KV cache lazily on the first inference call. Sending a
 dummy message during provisioning pre-populates the cache with the system
 prompt so the user's first real message gets a response without the cold-start
 delay.
+
+## See also
+
+- Infra shell: `../_infrastructure.spec.md`
+- Offline AI modules this service wires up: `../intelligence/_intelligence.spec.md`
+- Capability / native prelude: `../intelligence/system/_system.spec.md`
