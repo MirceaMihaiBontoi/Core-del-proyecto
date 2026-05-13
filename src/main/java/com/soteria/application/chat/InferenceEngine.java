@@ -120,6 +120,14 @@ public class InferenceEngine {
             // 3. History Filtering
             List<ChatMessage> filteredHistory = historyManager.filterRelevantHistory(session.getMessages(), message, session);
 
+            // Safety overlay: triage + RAG already locked a protocol, but the LLM path never calls
+            // InferenceListener#onAnalysisComplete on success (only REJECT), so the HUD would stay blank.
+            String safetyProtocolId = session.getActiveEmergencyId();
+            if (triage.isEmergency() && safetyProtocolId != null && !"N/A".equals(safetyProtocolId)
+                    && knowledgeBase.getProtocolById(safetyProtocolId) != null) {
+                listener.onSafetyBoxUpdate(safetyProtocolId, "ACTIVE");
+            }
+
             // 4. Execution
             String initialActiveId = session.getActiveEmergencyId() != null ? session.getActiveEmergencyId() : "N/A";
             brainService.chat(filteredHistory, context, user, language,
