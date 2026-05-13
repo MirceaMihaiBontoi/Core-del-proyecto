@@ -1,425 +1,193 @@
-# 🚨 SoterIA - Sistema de Gestión de Emergencias Inteligente
+# SoterIA - Enterprise Intelligent Emergency Management System
 
-## 📋 Descripción del Proyecto
+## Project Overview
 
-**SoterIA** es una aplicación Java con interfaz gráfica JavaFX que proporciona un sistema completo para detectar, procesar y registrar emergencias. El sistema incluye un chat conversacional con IA llamada **Soteria** que guía al usuario a través de un flujo estructurado de detección de emergencias, envío de alertas a servicios de emergencia (112) y recopilación de feedback posterior.
+> **Academic Project** — SoterIA is developed as an academic project. It is intended for educational and research purposes only and should not be used in real emergency situations.
 
-Diseñado como un prototipo educativo, el proyecto demuestra principios sólidos de **Programación Orientada a Objetos (POO)**, incluyendo:
-- ✅ **Interfaces** para abstracciones
-- ✅ **Herencia** con clases abstractas
-- ✅ **Polimorfismo** mediante implementaciones
-- ✅ **Control de errores** robusto
-- ✅ **Validaciones** exhaustivas
-- ✅ **Interfaz gráfica** con JavaFX
+SoterIA is a sophisticated, native Java-based emergency management platform designed to orchestrate critical responses in high-pressure environments. By integrating natural language processing, deterministic classification logic, and a multi-layered architectural design, SoterIA provides a robust framework for detecting, managing, and documenting emergency events.
 
-Autor: **Mircea Mihai Bontoi**
----
+The system is engineered for maximum reliability, utilizing the latest features of JDK 25 to provide a high-performance desktop experience through a responsive JavaFX interface. SoterIA serves as both a primary interaction point for users in crisis and a coordination hub for emergency dispatch protocols.
 
-## 🎯 Características Principales
+## Technical Architecture and Design Principles
 
-### 1. **Interfaz Gráfica Moderna (JavaFX)**
-- Pantalla de login/registro con diseño moderno
-- Chat conversacional con IA **Soteria**
-- Reconocimiento de voz
-- Tema visual profesional
+SoterIA follows a strict implementation of **Clean Architecture** and **SOLID principles**, ensuring a complete separation between domain logic and external infrastructures.
 
-### 2. **Detección de Emergencias con IA (Soteria)**
-El sistema puede detectar emergencias mediante:
-- **Análisis de texto**: Describe lo que está pasando
-- **Reconocimiento de voz**: Presiona el botón de micrófono
-- **Clasificación automática**: Soteria identifica el tipo de emergencia
-- **Fallback manual**: Menú de opciones si Soteria no está disponible
+### 1. Core Model (Immutable Domain)
+The foundation of the system is built on **Java Records**, ensuring that emergency data remains immutable and thread-safe throughout the application lifecycle.
+- **UserData**: Secure storage of user profiles, medical history, and emergency contacts.
+- **EmergencyEvent**: A comprehensive record of a detected crisis, including classification, timestamp, location data, and severity levels.
 
-Tipos de emergencia soportados:
-- 🚗 Accidente de tráfico
-- 🏥 Problema médico
-- 🔥 Incendio
-- ⚔️ Agresión
-- 🌊 Desastre natural
+### 2. Port Layer (Dependency Inversion)
+Critical infrastructure services are consumed through **ports** (interfaces in `core.port`) so backends can be swapped without touching callers:
+- **Brain**: Local LLM inference with streaming responses
+- **KnowledgeBase**: Protocol retrieval (Lucene + graph)
+- **Triage**: Emergency classification
+- **STT/TTS**: Speech-to-text and text-to-speech
+- **AlertService**: Emergency alert dispatch
+- **LocationProvider**: GPS/location services
+- **LocalizationService**: i18n for system messages
 
-### 3. **Registro y Logging**
-Todas las emergencias se registran automáticamente en archivos de log:
-- `logs/emergency_history.log` - Historial de emergencias
-- `logs/emergency_alerts.log` - Alertas enviadas
-- `logs/user_feedback.log` - Feedback de usuarios
+All ports are interfaces — implementations live in `infrastructure`.
 
-### 4. **Sistema de Alertas Flexible**
-Implementación de múltiples estrategias de alerta mediante interfaces:
-- **AlertSender**: Envío de alertas al 112
-- **EmergencyLogger**: Registro de eventos
-- Extensible para SMS, Email, etc.
+**Application layer:** `com.soteria.application` composes ports into product flows (no JavaFX). Example: chat turn orchestration in `application/chat` (`InferenceEngine`, RAG manifest, history trimming, streaming TTS sentences) — `src/main/java/com/soteria/application/chat/_chat.spec.md`.
 
-### 5. **Control de Errores Integral**
-- Validación de entrada del usuario
-- Manejo de excepciones en todas las operaciones
-- Reintentos automáticos en campos requeridos
-- Mensajes de error claros y descriptivos
+### 3. Intelligence Layer (Offline AI Pipeline)
+Offline reasoning is delivered by seven coordinated subsystems under `com.soteria.infrastructure.intelligence`:
+- **system**: Hardware capability detection, native JNI loading, and audio DSP (AGC, Contextual VAD).
+- **kws**: Always-on wake word detection via **openWakeWord** (ONNX).
+- **stt**: Offline speech-to-text via **Sherpa-ONNX** (Whisper).
+- **triage**: Semantic intent classification via **Llama Embedding** (GGUF).
+- **knowledge**: RAG using Apache Lucene (BM25) and JGraphT over `medical_protocols.json`.
+- **llm**: Reasoning and response generation via **Gemma 4** (llama.cpp).
+- **tts**: Natural text-to-speech synthesis via **Kokoro-82M** (ONNX).
 
----
+### 4. Infrastructure Layer (System Implementation)
+Handles the technical details of the environment:
+- **Persistence**: JSON-based storage for the single device-owner profile (`ProfileRepository` → `~/.soteria/profile.json`) and chat history (`ChatSessionRepository` → `~/.soteria/sessions/{id}.json`).
+- **Notification**: Local alert log + simulated emergency-service dispatch (`NotificationAlertService`). Real SMS/call integration is a later phase.
+- **Sensor**: System GPS wrapper (`SystemGPSLocation`) and best-effort device phone number read (`DevicePhoneDetector`).
+- **Bootstrap**: `BootstrapService` orchestrates background downloads, engine loading and a silent LLM warmup turn so the KV cache holds the system prompt before the user's first real message. Exposes observable `statusProperty` / `progressProperty` / `readyProperty` for direct FXML binding.
 
-## 🏗️ Arquitectura y Diseño POO
+### 5. UI Layer (Reactive Interface)
+JavaFX + **AtlantaFX PrimerDark** theme with a thin overrides stylesheet (`main.css`). No login screen — SoterIA is single-user by design. Package-level documentation for contributors: `src/main/java/com/soteria/ui/_ui.spec.md` (JavaFX), `src/main/java/com/soteria/application/chat/_chat.spec.md` (chat inference pipeline), plus `_chat.spec.md`, `_onboarding.spec.md`, `_view.spec.md`, `_i18n.spec.md` under each UI subpackage.
+- **Onboarding wizard** (`OnboardingController` + `onboarding-view.fxml`): step 1 picks the on-device Gemma 4 profile (RAM-based *Recommended* tag and weight in GB) and language (pre-selected from GPS/locale, English fallback). Step 2 captures the emergency profile. An installation overlay covers the gap if downloads aren't finished when the user submits.
+- **Chat screen** (`ChatController` + `chat-view.fxml`): conversation with text + voice input, rendered as custom bubbles on top of the PrimerDark base.
+- **Asynchronous Execution**: All I/O and LLM/STT calls run on worker threads; the FX thread only touches the scene graph.
 
-### Diagrama de Clases (Simplificado)
+## Key Features and Capabilities
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                     MainApp                             │
-│          (Aplicación JavaFX principal)                  │
-└──────────────────────┬──────────────────────────────────┘
-                       │
-                       ▼
-┌─────────────────────────────────────────────────────────┐
-│                  ChatController                         │
-│        (Controlador de chat conversacional)             │
-├─────────────────────────────────────────────────────────┤
-│ - EmergencyDetector (detecta emergencias)               │
-│ - IAlert alertSender (envía alertas - POLIMORFISMO)    │
-│ - EmergencyLogger (registra eventos)                    │
-│ - UserData (datos del usuario)                          │
-│ - AIClassifierClient (comunicación con IA)              │
-└─────────────────────────────────────────────────────────┘
+### 🧠 Hardware-Aware Native Intelligence (SoterIA 2.0)
+SoterIA 2.0 picks among **three LLM profiles** from installed RAM (`SystemCapability`). All LLMs ship as **GGUF** bundles. **STT is not tied to the profile**: one shared **Sherpa-ONNX** Whisper Small model is provisioned for every configuration.
 
-INTERFACES (Contratos):
-┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐
-│     IAlert       │  │ ILocationService │  │     ILogger      │
-├──────────────────┤  ├──────────────────┤  ├──────────────────┤
-│ send()           │  │ getCoordinates() │  │ logInfo()        │
-│ notifyContacts() │  │ getLocation()    │  │ logWarning()     │
-│ getAlertType()   │  │ getPermission()  │  │ logError()       │
-└──────────────────┘  └──────────────────┘  └──────────────────┘
-       ▲                      ▲                      ▲
-       │ implementa           │ implementa           │ implementa
-       │                      │                      │
-┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐
-│  AlertSender     │  │ GPSLocationService│ │ EmergencyLogger  │
-└──────────────────┘  └──────────────────┘  └──────────────────┘
+#### Three LLM profiles (GGUF via llama.cpp)
+RAM thresholds in code: **&lt; 6 GB** → Lite; **6–12 GB** → Balanced; **≥ 12 GB** → Expert (defaults; the user can override in onboarding).
 
-HERENCIA (Extensibilidad):
-┌──────────────────────────────┐
-│  EmergencyType (ABSTRACTA)   │
-│  ├─ getPriority()            │
-│  ├─ getDescription()         │
-│  ├─ getResponseProtocol()    │ (método abstracto)
-│  └─ getRequiredServices()    │ (método abstracto)
-└──────────┬───────────────────┘
-           │
-           ▼
-┌──────────────────────────────┐
-│  MedicalEmergency            │
-│  (Implementa métodos)        │
-└──────────────────────────────┘
-```
+| Profile (enum) | Bundle role | Typical GGUF |
+|----------------|-------------|--------------|
+| **Lite** | Smallest weights | Gemma 4 **E2B** Q4 — `unsloth/gemma-4-E2B-it-GGUF` |
+| **Balanced** | Default mid tier | Gemma 4 **E4B** Q4 — `unsloth/gemma-4-E4B-it-GGUF` |
+| **Expert** | Highest quality | Gemma 4 **E4B** Q8 — same repo slug, heavier quant |
 
-### Conceptos POO Implementados
+**STT/TTS**: **Sherpa-ONNX** end to end — `sherpa-onnx-whisper-small` for STT; **Kokoro** (`kokoro-multi-lang-v1_0`) for TTS via `SherpaTTSService`.
 
-#### 1. **Polimorfismo** 🔄
-```java
-private final IAlert alertSender;  // Interfaz genérica
-this.alertSender = new AlertSender();  // Implementación específica
+> **Gemma 4 & JNI**: use a `jllama` built from **[MirceaMihaiBontoi/java-llama.cpp](https://github.com/MirceaMihaiBontoi/java-llama.cpp)** (same tree as `vendor/java-llama.cpp`) and place it under `lib/` (see `lib/GEMMA4_JLLAMA.txt`). The Java entrypoint remains `de.kherud.llama`; `LlamaNativeBootstrap` selects `lib/` when appropriate.
 
-// En runtime, puede ser cualquier clase que implemente IAlert:
-// - AlertSender
-// - CallAlert
-// - SMSAlert (futura)
-// - EmailAlert (futura)
-```
+### 🏥 100% Offline RAG Pipeline
+Survival-critical reliability via a local **Retrieval-Augmented Generation** pipeline:
+- **Apache Lucene (BM25)**: In-memory text index over medical protocols (`title` + `keywords`), ranked by relevance.
+- **JGraphT**: Undirected knowledge graph linking protocols by shared category or cross-references in their steps. The top Lucene hit is enriched with its graph neighbors before being passed to the LLM.
+- **llama.cpp (Java bindings)**: JNI + GGUF via the fork above; `de.kherud:llama` carries the Java API, **`jllama` must match the fork build** in `lib/` (see `lib/GEMMA4_JLLAMA.txt`).
 
-#### 2. **Herencia** 👨‍👧
-```java
-public abstract class EmergencyType {
-    abstract String getResponseProtocol();
-    abstract String[] getRequiredServices();
-}
+### 🌍 English-Core Multilingual Strategy
+Using an "English-Core" reasoning approach for maximum precision:
+- **Cross-Lingual Reasoning**: The LLM reads English protocols and generates instructions in the user's selected language (e.g., Spanish).
+- **Semantic Mapping**: Multilingual keyword indexing allows users to trigger English protocols using native terminology.
 
-public class MedicalEmergency extends EmergencyType {
-    // Implementación específica para emergencias médicas
-}
+### Protocol Catalogue
+`medical_protocols.json` currently ships five core protocols (extensible without code changes):
+- **Vital**: CPR, Severe External Hemorrhage.
+- **Airway**: Choking (5-and-5 / Heimlich).
+- **Trauma**: Thermal Burns.
+- **Neurological**: Stroke (FAST assessment).
+
+### Multimodal Input Handling
+- **Conversational Synthesis**: A guided UX that asks the right questions based on the detected emergency type.
+- **Hands-Free Activation**: Ambient listening via **openWakeWord** to trigger interaction without physical contact.
+- **Voice-to-Action**: Real-time offline speech through **Sherpa-ONNX** (mic → VAD → Whisper) for reporting.
+- **Natural Voice Feedback**: Streaming responses spoken through **Kokoro-82M** for eyes-free guidance.
+
+
+## Project Structure
+
+```text
+com.soteria.core
+├── domain             # Business concepts (chat, protocols)
+├── model              # Real-world entities (UserData, EmergencyEvent)
+├── port               # Service contracts (Brain, KnowledgeBase, Triage, STT, TTS, AlertService, etc.)
+└── exception          # Domain exceptions
+
+com.soteria.application
+└── chat               # InferenceEngine — see chat/_chat.spec.md
+
+com.soteria.infrastructure
+├── bootstrap          # BootstrapService (background downloads, engine warmup)
+├── intelligence       # System DSP, KWS, STT, Triage, Knowledge, LLM, TTS
+├── notification       # NotificationAlertService (log + simulated call)
+├── persistence        # ProfileRepository, ChatSessionRepository (JSON storage)
+└── sensor             # SystemGPSLocation, DevicePhoneDetector
+
+com.soteria.ui
+├── MainApp.java       # Application entry — theme, bootstrap, onboarding vs chat
+├── chat/              # ChatController + STT/TTS/inference wiring helpers
+├── onboarding/        # OnboardingController, OnboardingLanguageCatalog
+├── view/              # ChatViewManager, SessionCoordinator, SoterIAFace
+├── i18n/              # UiLocales (language label → java.util.Locale)
+└── _ui.spec.md        # UI layer map; per-package specs: chat/, onboarding/, view/, i18n/
 ```
 
-#### 3. **Interfaces** 📋
-```java
-public interface IAlert {
-    boolean send(EmergencyEvent event);
-    void notifyContacts(UserData userData, EmergencyEvent event);
-    String getAlertType();
-}
+Contributor maps: `src/main/java/com/soteria/application/chat/_chat.spec.md` (chat pipeline), `src/main/java/com/soteria/ui/_ui.spec.md` (JavaFX shell).
+
+## System Implementation Standards
+
+### OOP & Language
+- **Records**: Immutable transport for `UserData`, `EmergencyEvent`, `ChatMessage`.
+- **Interfaces + DI**: `AlertService` and `LocationProvider` decouple UI from infrastructure.
+- **Java 25 target**: `<release>25</release>` in `pom.xml`.
+
+## Setup and Installation
+
+### System Requirements
+- **Java Runtime**: JDK 25 or higher.
+- **Build Tool**: Apache Maven 3.9.x.
+- **Desktop**: Windows, Linux. **LLM**: Gemma 4 E4B GGUF (`unsloth/gemma-4-E4B-it-GGUF`); use a recent `jllama` native (`lib/llama/`, see `lib/llama/BUILD.md`).
+- **Android**: GluonFX build pipeline + `libllama.so` compiled for `arm64-v8a` (Vulkan backend recommended).
+- **iOS**: planned as a separate native Swift app leveraging CoreML + llama.cpp Swift bindings; shares `medical_protocols.json` and data contracts with the Java core.
+
+### Build Instructions
+
+#### Windows
+
+The easiest way is to run the setup script, which installs all dependencies, registers the Maven JARs, compiles the project, and launches the application:
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\setup_windows.ps1
 ```
 
-#### 4. **Reutilización de Código** ♻️
-```java
-// EmergencyDetector es usado tanto por la UI como por la lógica de negocio
-public class ChatController {
-    private EmergencyDetector detector;
-    
-    public void processMessage(String message) {
-        EmergencyDetector.DetectionResult result = detector.classifyEmergency(message);
-        // Reutiliza la lógica de detección
-    }
-}
+For a manual build after dependencies are in place:
+
+```powershell
+mvn clean compile
+mvn javafx:run
 ```
 
----
+See `INSTALL_WINDOWS.md` for detailed manual installation instructions.
 
-## 📁 Estructura del Proyecto
+#### Linux
 
-```
-src/main/java/com/emergencias/
-│
-├── alert/                             # Sistema de alertas
-│   ├── AlertSender.java              # Implementa IAlert
-│   ├── CallAlert.java                # Alternativa: llamadas
-│   └── EmergencyLogger.java          # Registro de eventos
-│
-├── detector/                          # Detección de emergencias
-│   └── EmergencyDetector.java        # Detecta y clasifica emergencias
-│
-├── model/                             # Modelos de datos
-│   ├── CentroSalud.java              # Modelo de centro de salud
-│   ├── CentroSaludUtils.java         # Utilidades para centros de salud
-│   ├── EmergencyEvent.java           # Evento de emergencia
-│   ├── EmergencyType.java            # Clase abstracta para tipos
-│   ├── MedicalEmergency.java         # Implementación: emergencia médica
-│   ├── UserData.java                 # Información del usuario
-│   └── UserFeedback.java             # Feedback del usuario
-│
-├── services/                          # Servicios e interfaces
-│   ├── AIClassifierClient.java       # Cliente para backend Python
-│   ├── GPSLocationService.java       # Implementación GPS
-│   ├── IAlert.java                   # Interfaz de alertas
-│   ├── ILocationService.java         # Interfaz de ubicación
-│   └── ILogger.java                  # Interfaz de logging
-│
-└── ui/                                # Interfaz de usuario (JavaFX)
-    ├── ChatController.java           # Controlador de chat conversacional
-    ├── LoginController.java          # Controlador de login/registro
-    ├── MainApp.java                  # Aplicación principal JavaFX
-    ├── MainController.java           # Controlador principal
-    └── UserFileManager.java          # Gestión de archivos de usuario
+The easiest way is to run the setup script:
 
-src/main/resources/
-├── fxml/
-│   ├── chat-view.fxml               # Vista de chat
-│   └── login-view.fxml              # Vista de login
-├── styles/
-│   └── main.css                     # Estilos CSS
-├── CentrosdeSaludMurcia.json        # Datos de centros de salud
-└── META-INF/
-    └── MANIFEST.MF                  # Manifiesto JAR
-
-python-backend/                        # Backend Python para IA
-├── server.py                        # Servidor FastAPI
-├── train_model.py                   # Entrenamiento de modelo
-├── requirements.txt                 # Dependencias Python
-├── data/                           # Datos de entrenamiento
-└── models/                         # Modelos entrenados
+```bash
+chmod +x setup_linux.sh
+./setup_linux.sh
 ```
 
----
+For a manual build after dependencies are in place:
 
-## 🔄 Flujo de Ejecución
-
-### 1. **Inicialización de la Aplicación**
-```
-MainApp.java
-  ├─ Cargar pantalla de login (login-view.fxml)
-  ├─ Configurar estilos CSS
-  ├─ Verificar sesión guardada
-  └─ Mostrar ventana principal
+```bash
+mvn clean compile -Plinux
+mvn javafx:run
 ```
 
-### 2. **Login/Registro**
-```
-LoginController.java
-  ├─ Validar credenciales
-  ├─ Registrar nuevos usuarios
-  ├─ Guardar sesión (opcional)
-  └─ Navegar a pantalla de chat
-```
+See `INSTALL_LINUX.md` for detailed manual installation instructions.
 
-### 3. **Chat Conversacional**
-```
-ChatController.java
-  ├─ Inicializar EmergencyDetector
-  ├─ Verificar disponibilidad de IA
-  ├─ Procesar mensajes del usuario
-  └─ Clasificar emergencias
+### Testing and Verification
+The system includes an extensive suite of unit tests to verify domain logic and record integrity:
+```bash
+mvn test
 ```
 
-### 4. **Detección de Emergencia**
-```
-EmergencyDetector.classifyEmergency()
-  ├─ Si IA disponible:
-  │   ├─ Enviar descripción al backend Python
-  │   ├─ Recibir clasificación
-  │   ├─ Extraer tipo, confianza, instrucciones
-  │   └─ Retornar DetectionResult
-  └─ Si IA no disponible:
-      ├─ Análisis manual por palabras clave
-      └─ Retornar DetectionResult
-```
+## Licensing and Governance
+This project is developed under high-standard professional guidelines for emergency systems.
 
-### 5. **Envío de Alerta**
-```
-sendEmergencyAlert()
-  ├─ Crear EmergencyEvent
-  ├─ Registrar en EmergencyLogger
-  ├─ Enviar con AlertSender
-  └─ Notificar al usuario
-```
-
-### 6. **Registros Generados**
-```
-logs/emergency_history.log:
-[2026-01-11 14:30:45] ID: a1b2c3d4 | Tipo: Problema médico | Ubicación: Plaza Mayor, Madrid | Gravedad: 8
-
-logs/emergency_alerts.log:
-[2026-01-11 14:30:45] ALERTA DE EMERGENCIA
-Tipo: Problema médico
-Ubicación: Plaza Mayor, Madrid
-Nivel de gravedad: 8/10
-...
-
-logs/user_feedback.log:
-[2026-01-11 14:31:15] ID Emergencia: a1b2c3d4 | Puntuación: 5/5 | Comentarios: Excelente servicio
-```
-
----
-
-## 🛡️ Control de Errores
-
-El sistema implementa manejo de errores multinivel:
-
-### Nivel 1: Validación de Entrada
-```java
-// En LoginController.handleRegister()
-if (username.isEmpty() || password.isEmpty() || name.isEmpty()) {
-    registerErrorLabel.setText("Por favor completa los campos obligatorios");
-    return;
-}
-```
-
-### Nivel 2: Try-Catch en Operaciones Críticas
-```java
-try {
-    EmergencyEvent event = detector.createEvent(lastDetectionResult, null, 5);
-    logger.logEmergency(event);
-    boolean sent = alertSender.send(event);
-} catch (Exception e) {
-    addBotMessage("❌ Error: " + e.getMessage());
-}
-```
-
-### Nivel 3: Verificación de Servicios Externos
-```java
-private void checkAIAvailability() {
-    new Thread(() -> {
-        aiAvailable = aiClient.isAvailable();
-        Platform.runLater(() -> {
-            if (aiAvailable) {
-                aiStatusLabel.setText("IA: ✅ Conectada");
-            } else {
-                aiStatusLabel.setText("IA: ❌ Desconectada");
-                addBotMessage("⚠️ Servidor de IA no disponible.\nModo básico activado.");
-            }
-        });
-    }).start();
-}
-```
-
----
-
-## 🚀 Instrucciones de Uso
-
-### Requisitos Previos
-- **Java 21** o superior
-- **Maven** para dependencias
-- **Python 3.8+** (opcional, para IA)
-- **Dependencias Python** (para funcionalidad completa de IA)
-
-### Ejecución
-
-1. **Compilar el proyecto:**
-   ```bash
-   mvn clean compile
-   ```
-
-2. **Ejecutar la aplicación:**
-   ```bash
-   mvn javafx:run
-   ```
-
-3. **(Opcional) Iniciar backend Python:**
-   ```bash
-   cd python-backend
-   pip install -r requirements.txt
-   python -m uvicorn server:app --host 0.0.0.0 --port 8000
-   ```
-
-### Funcionalidades sin Backend Python
-Si el servidor Python no está disponible:
-- ✅ Login/Registro funciona
-- ✅ Chat funciona en modo básico
-- ✅ Detección manual de emergencias
-- ✅ Envío de alertas
-- ❌ Reconocimiento de voz
-- ❌ Clasificación con IA
-- ❌ Corrección ortográfica
-
----
-
-## 🎨 Interfaz de Usuario
-
-### Pantalla de Login
-- Formulario de inicio de sesión
-- Formulario de registro
-- Recordar sesión
-- Validación de campos
-
-### Pantalla de Chat
-- Chat conversacional con mensajes de usuario y bot
-- Botón de micrófono para entrada por voz
-- Indicador de estado de IA
-- Mensajes de bienvenida personalizados
-- Instrucciones de actuación para cada emergencia
-
----
-
-## 🤝 Contribución y Mejoras Futuras
-
-Posibles mejoras para versiones futuras:
-
-- [ ] Integración con API de Google Maps para GPS real
-- [ ] Base de datos en lugar de archivos de texto
-- [ ] Envío real de SMS/Email
-- [ ] Integración con servicios de emergencia reales
-- [ ] Análisis de estadísticas de emergencias
-- [ ] Sistema de autenticación de usuarios
-- [ ] Aplicación móvil (Android/iOS)
-- [ ] Soporte para múltiples idiomas
-- [ ] Modo offline con sincronización
-
----
-
-## 📝 Notas Técnicas
-
-### Nombre de la Aplicación
-- **SoterIA**: Nombre de la aplicación completa
-- **Soteria**: Nombre de la IA asistente
-
-### Refactorización Reciente
-- **EmergencyDetector** refactorizado para funcionar con JavaFX
-- **ChatController** reutiliza EmergencyDetector (sin duplicación)
-- Eliminados archivos obsoletos: ConsoleApp.java, EmergencyManager.java
-- Estructura de paquetes optimizada
-
-### Dependencias Principales
-- **JavaFX 21.0.1**: Interfaz gráfica
-- **Jackson 2.17.0**: Procesamiento JSON
-- **SQLite JDBC**: Base de datos (futuro)
-- **FastAPI**: Backend Python para IA
-
----
-
-## 📄 Licencia
-
-Este proyecto es un prototipo educativo desarrollado por **Mircea Mihai Bontoi**.
+**Lead Developer**: Mircea Mihai Bontoi

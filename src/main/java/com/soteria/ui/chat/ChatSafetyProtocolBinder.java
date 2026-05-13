@@ -1,0 +1,85 @@
+package com.soteria.ui.chat;
+
+import com.soteria.core.domain.emergency.Protocol;
+import com.soteria.core.domain.chat.ChatSession;
+import com.soteria.core.port.KnowledgeBase;
+
+import java.util.function.BiConsumer;
+
+import javafx.scene.control.Label;
+import javafx.scene.layout.VBox;
+
+import com.soteria.ui.view.ChatViewManager;
+import com.soteria.ui.view.SoterIAFace;
+
+/**
+ * Maps triage protocol state (id + status) to the safety sidebar and {@link ChatSession} emergency fields. Must run on
+ * the JavaFX application thread.
+ *
+ * <p>Status matrix and CSS: {@code _chat.spec.md}.</p>
+ */
+final class ChatSafetyProtocolBinder {
+
+    /**
+     * Aggregated inputs for {@link #apply(Request)} (passed from {@link ChatInferenceUiBridge#onSafetyBoxUpdate}).
+     */
+    record Request(
+            VBox safetyContainer,
+            KnowledgeBase knowledgeBase,
+            ChatSession activeSession,
+            ChatViewManager viewManager,
+            SoterIAFace face,
+            String protocolId,
+            String status,
+            String pillReadyToken,
+            String pillAlertToken,
+            BiConsumer<String, String> applyAiStatusI18n) {
+    }
+
+    private ChatSafetyProtocolBinder() {
+    }
+
+    /**
+     * @param r UI and domain context; must not be {@code null}
+     */
+    static void apply(Request r) {
+        if ("N/A".equals(r.protocolId()) || "RESOLVED".equals(r.status()) || "INACTIVE".equals(r.status())) {
+            if ("RESOLVED".equals(r.status())) {
+                r.activeSession().setActiveEmergencyId(null);
+                r.activeSession().setProtocolLocked(false);
+                r.activeSession().getProtocolProgress().clear();
+                r.applyAiStatusI18n().accept("chat.status.ai_ready", r.pillReadyToken());
+            }
+            r.safetyContainer().setVisible(false);
+            r.safetyContainer().setManaged(false);
+            return;
+        }
+
+        Protocol protocol = r.knowledgeBase().getProtocolById(r.protocolId());
+        if (protocol == null) {
+            return;
+        }
+
+        r.safetyContainer().getChildren().clear();
+        r.safetyContainer().setVisible(true);
+        r.safetyContainer().setManaged(true);
+
+        Label title = new Label(protocol.getTitle().toUpperCase());
+        title.getStyleClass().add("safety-title");
+        r.safetyContainer().getChildren().add(title);
+
+        for (String step : protocol.getContent().split("\n")) {
+            if (step.trim().isEmpty()) continue;
+            Label stepLabel = new Label("• " + step.trim());
+            stepLabel.getStyleClass().add("safety-step");
+            stepLabel.setWrapText(true);
+            r.safetyContainer().getChildren().add(stepLabel);
+        }
+
+        if ("ACTIVE".equals(r.status())) {
+            r.activeSession().setActiveEmergencyId(r.protocolId());
+            r.applyAiStatusI18n().accept("chat.status.alert_active", r.pillAlertToken());
+            r.face().setState(SoterIAFace.State.ALERT);
+        }
+    }
+}

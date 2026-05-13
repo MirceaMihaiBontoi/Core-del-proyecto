@@ -1,11 +1,12 @@
-# Archivos de log
+# Log files
 *.log
 emergency_history.log
 user_feedback.log
 *.dat
 cache/
+logs/
 
-# Archivos compilados
+# Compiled files
 *.class
 bin/
 out/
@@ -18,13 +19,21 @@ target/
 *.swp
 *.swo
 
-# Sistema operativo
+# Operating system
 .DS_Store
 Thumbs.db
 
-# Otros
+# Misc
 .classpath
 .project
-.settings/
-__pycache__/
-Roadmap.md
+.*
+ROADMAP.md
+execution_flow.txt
+*aider*
+
+
+# AI Models
+training/
+
+# Local models
+models/*

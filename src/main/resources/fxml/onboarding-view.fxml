@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+
+<VBox xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.soteria.ui.onboarding.OnboardingController"
+      styleClass="onboarding-root" alignment="TOP_CENTER" spacing="18">
+
+    <padding><Insets top="30" right="48" bottom="28" left="48"/></padding>
+
+    <Label fx:id="onboardingTitleLabel" text="%onboarding.title" styleClass="onboarding-title"/>
+    
+    <StackPane fx:id="wizardStack" VBox.vgrow="ALWAYS">
+        <VBox fx:id="step1Container" spacing="16" alignment="TOP_CENTER">
+            <Label fx:id="step1SubtitleLabel" text="%onboarding.step1" styleClass="onboarding-subtitle"/>
+            
+            <VBox spacing="6" maxWidth="460">
+                <Label fx:id="modelFieldLabel" text="%onboarding.model.label" styleClass="field-label"/>
+                <ComboBox fx:id="modelComboBox" maxWidth="Infinity" styleClass="input-field"/>
+            </VBox>
+
+            <VBox spacing="6" maxWidth="460">
+                <Label fx:id="languageFieldLabel" text="%onboarding.language" styleClass="field-label"/>
+                <ComboBox fx:id="languageComboBox" maxWidth="Infinity" styleClass="input-field"/>
+                <Label fx:id="locationLabel" text="%onboarding.location.detecting" styleClass="caption-label"/>
+            </VBox>
+
+            <Label fx:id="step1ErrorLabel" styleClass="error-label" wrapText="true" maxWidth="460"/>
+            <Region VBox.vgrow="ALWAYS"/>
+            <Button fx:id="continueButton" text="%onboarding.continue" onAction="#goToStep2" styleClass="primary-button" maxWidth="460"/>
+        </VBox>
+
+        <VBox fx:id="step2Container" spacing="16" alignment="TOP_CENTER" visible="false">
+            <Label fx:id="step2SubtitleLabel" text="%onboarding.step2" styleClass="onboarding-subtitle"/>
+            
+            <VBox spacing="12" maxWidth="460">
+                <VBox spacing="4">
+                    <Label fx:id="fullNameFieldLabel" text="%onboarding.field.full_name" styleClass="field-label"/>
+                    <TextField fx:id="nameField" promptText="%onboarding.field.name_prompt" styleClass="input-field"/>
+                </VBox>
+
+                <HBox spacing="12">
+                    <VBox spacing="4" HBox.hgrow="ALWAYS">
+                        <Label fx:id="genderFieldLabel" text="%onboarding.field.gender" styleClass="field-label"/>
+                        <ComboBox fx:id="genderComboBox" maxWidth="Infinity" styleClass="input-field"/>
+                    </VBox>
+                    <VBox spacing="4" HBox.hgrow="ALWAYS">
+                        <Label fx:id="birthDateFieldLabel" text="%onboarding.field.birth_date" styleClass="field-label"/>
+                        <DatePicker fx:id="birthDatePicker" maxWidth="Infinity" styleClass="input-field"/>
+                    </VBox>
+                </HBox>
+
+                <VBox spacing="4">
+                    <Label fx:id="contactFieldLabel" text="%onboarding.field.emergency_contact" styleClass="field-label"/>
+                    <TextField fx:id="contactField" promptText="%onboarding.field.contact_prompt" styleClass="input-field"/>
+                </VBox>
+
+                <VBox spacing="4">
+                    <Label fx:id="medicalFieldLabel" text="%onboarding.field.medical" styleClass="field-label"/>
+                    <TextArea fx:id="medicalField" prefRowCount="3" wrapText="true" styleClass="input-field" 
+                               promptText="%onboarding.field.medical_prompt"/>
+                </VBox>
+            </VBox>
+
+            <Label fx:id="errorLabel" styleClass="error-label" wrapText="true"/>
+            <HBox spacing="10" alignment="CENTER" maxWidth="460">
+                <Button fx:id="backButton" text="%onboarding.action.back" onAction="#goToStep1" styleClass="flat-button"/>
+                <Button fx:id="finishButton" text="%onboarding.action.finish" onAction="#handleStart" 
+                        styleClass="success-button" HBox.hgrow="ALWAYS" maxWidth="Infinity"/>
+            </HBox>
+        </VBox>
+
+        <VBox fx:id="installationOverlay" spacing="24" alignment="CENTER" visible="false" style="-fx-background-color: -color-bg-default;">
+            <Label fx:id="installTitleLabel" text="%onboarding.install.title" styleClass="title-2"/>
+            <Label fx:id="installBodyLabel" text="%onboarding.install.body"
+                   wrapText="true" alignment="CENTER" styleClass="onboarding-subtitle" maxWidth="400"/>
+            
+            <VBox spacing="8" alignment="CENTER" maxWidth="400">
+                <Label fx:id="bootStatusLabel" text="%onboarding.install.boot_default" styleClass="caption-label"/>
+                <ProgressBar fx:id="bootProgress" progress="0.0" maxWidth="Infinity" prefHeight="10"/>
+            </VBox>
+            
+            <Label fx:id="installHoldLabel" text="%onboarding.install.hold" styleClass="caption-label" style="-fx-font-style: italic;"/>
+        </VBox>
+    </StackPane>
+
+</VBox>

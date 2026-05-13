@@ -1,448 +1,691 @@
-/* Estilos para el Sistema de Emergencias - Diseño Moderno para JavaFX */
+/*
+ * SoterIA — emergency palette over AtlantaFX PrimerDark.
+ *
+ * We keep the widget skins from PrimerDark (combos, date pickers, scrollbars)
+ * but repaint the AtlantaFX color tokens so the app reads as an emergency /
+ * medical assistant, not a developer tool. Hex anchors live in .root under
+ * the `-soteria-*` namespace; AtlantaFX tokens are rebound to them so any
+ * stock widget inherits the new look automatically.
+ */
 
 .root {
-    -fx-font-family: "Segoe UI", Arial, sans-serif;
-    font-family: "Segoe UI", Arial, sans-serif;
+    /* Emergency palette anchors */
+    -soteria-bg: #0a1214;
+    /* near-black with cool tint */
+    -soteria-bg-subtle: #101a1d;
+    -soteria-bg-elevated: #15242a;
+    -soteria-border-color: #1f3740;
+    -soteria-fg: #e6f1f3;
+    /* warm off-white for stress reading */
+    -soteria-fg-muted: #7c9aa3;
+
+    -soteria-accent: #06b6d4;
+    /* medical teal — trust, calm */
+    -soteria-accent-strong: #0891b2;
+    -soteria-accent-soft: #0e4a55;
+
+    -soteria-danger: #ef4444;
+    /* 112 red — critical alert */
+    -soteria-danger-strong: #dc2626;
+    -soteria-danger-soft: #3a1414;
+
+    -soteria-warning: #f59e0b;
+    /* amber — AI degraded / thinking */
+    -soteria-warning-soft: #3a2a0d;
+
+    -soteria-success: #10b981;
+    /* emerald — alert delivered */
+    -soteria-success-soft: #0d3a2c;
+
+    /* Rebind AtlantaFX tokens so stock widgets pick up the palette. */
+    -color-bg-default: -soteria-bg;
+    -color-bg-subtle: -soteria-bg-subtle;
+    -color-bg-inset: -soteria-bg-subtle;
+    -color-bg-overlay: -soteria-bg-elevated;
+
+    -color-fg-default: -soteria-fg;
+    -color-fg-muted: -soteria-fg-muted;
+    -color-fg-subtle: -soteria-fg-muted;
+    -color-fg-emphasis: white;
+
+    -color-border-default: -soteria-line-color;
+    -color-border-muted: -soteria-line-color;
+    -color-border-subtle: -soteria-line-color;
+
+    -color-accent-fg: -soteria-accent;
+    -color-accent-emphasis: -soteria-accent;
+    -color-accent-subtle: -soteria-accent-soft;
+    -color-accent-muted: -soteria-accent-strong;
+
+    -color-danger-fg: -soteria-danger;
+    -color-danger-emphasis: -soteria-danger;
+    -color-danger-subtle: -soteria-danger-soft;
+    -color-danger-muted: -soteria-danger-strong;
+
+    -color-warning-fg: -soteria-warning;
+    -color-warning-emphasis: -soteria-warning;
+    -color-warning-subtle: -soteria-warning-soft;
+
+    -color-success-fg: -soteria-success;
+    -color-success-emphasis: -soteria-success;
+    -color-success-subtle: -soteria-success-soft;
+
+    -fx-font-family: "Inter", "Segoe UI", "Arial", sans-serif;
     -fx-font-size: 14px;
-    font-size: 14px;
 }
 
-/* ============================================
-   LOGIN Y REGISTRO
-   ============================================ */
+/* ==========================================================
+   Onboarding
+   ========================================================== */
 
-/* Panel principal del login */
-.login-panel {
-    -fx-background-color: #f8fafc;
-    background-color: #f8fafc;
-    -fx-alignment: center;
-    text-align: center;
-    -fx-padding: 20px;
-    padding: 20px;
-    -fx-background-radius: 16px;
-    border-radius: 16px;
-    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.1), 20, 0, 0, 4);
+.onboarding-root {
+    -fx-background-color: -soteria-bg;
 }
 
-/* Logo emoji */
-.login-logo {
-    -fx-font-size: 64px;
-    font-size: 64px;
-}
-
-/* Título principal */
-.login-title {
-    -fx-font-size: 32px;
-    font-size: 32px;
+.onboarding-title {
+    -fx-font-size: 30px;
     -fx-font-weight: bold;
-    font-weight: bold;
-    -fx-text-fill: #1e293b;
-    color: #1e293b;
+    -fx-text-fill: -soteria-fg;
 }
 
-/* Subtítulo */
-.login-subtitle {
-    -fx-font-size: 16px;
-    font-size: 16px;
-    -fx-text-fill: #64748b;
-    color: #64748b;
-}
-
-/* Título del formulario */
-.form-title {
-    -fx-font-size: 24px;
-    font-size: 24px;
-    -fx-font-weight: bold;
-    font-weight: bold;
-    -fx-text-fill: #1e293b;
-    color: #1e293b;
-}
-
-/* Campos de entrada */
-.input-field {
-    -fx-background-color: white;
-    background-color: white;
-    -fx-border-color: #e2e8f0;
-    border-color: #e2e8f0;
-    -fx-border-width: 2px;
-    border-width: 2px;
-    -fx-border-radius: 8px;
-    border-radius: 8px;
-    -fx-background-radius: 8px;
-    border-radius: 8px;
-    -fx-padding: 14px 16px;
-    padding: 14px 16px;
-    -fx-font-size: 15px;
-    font-size: 15px;
-    -fx-pref-height: 48px;
-    height: 48px;
-}
-
-.input-field:focused {
-    -fx-border-color: #3b82f6;
-    border-color: #3b82f6;
-    -fx-effect: dropshadow(gaussian, rgba(59, 130, 246, 0.2), 8, 0, 0, 0);
-}
-
-/* Botón primario */
-.primary-button {
-    -fx-background-color: #3b82f6;
-    background-color: #3b82f6;
-    -fx-text-fill: white;
-    color: white;
-    -fx-font-weight: bold;
-    font-weight: bold;
-    -fx-font-size: 16px;
-    font-size: 16px;
-    -fx-background-radius: 8px;
-    border-radius: 8px;
-    -fx-padding: 14px 24px;
-    padding: 14px 24px;
-    -fx-cursor: hand;
-    cursor: pointer;
-    -fx-pref-height: 48px;
-    height: 48px;
-}
-
-.primary-button:hover {
-    -fx-background-color: #2563eb;
-    background-color: #2563eb;
-}
-
-/* Botón de éxito */
-.success-button {
-    -fx-background-color: #10b981;
-    background-color: #10b981;
-    -fx-text-fill: white;
-    color: white;
-    -fx-font-weight: bold;
-    font-weight: bold;
-    -fx-font-size: 16px;
-    font-size: 16px;
-    -fx-background-radius: 8px;
-    border-radius: 8px;
-    -fx-padding: 14px 24px;
-    padding: 14px 24px;
-    -fx-cursor: hand;
-    cursor: pointer;
-    -fx-pref-height: 48px;
-    height: 48px;
-}
-
-.success-button:hover {
-    -fx-background-color: #059669;
-    background-color: #059669;
-}
-
-/* Checkbox */
-.remember-checkbox {
-    -fx-text-fill: #475569;
-    color: #475569;
+.onboarding-subtitle {
     -fx-font-size: 14px;
-    font-size: 14px;
+    -fx-text-fill: -soteria-fg-muted;
 }
 
-.remember-checkbox .box {
-    -fx-background-color: white;
-    background-color: white;
-    -fx-border-color: #cbd5e1;
-    border-color: #cbd5e1;
-    -fx-border-width: 2px;
-    border-width: 2px;
-    -fx-border-radius: 4px;
-    border-radius: 4px;
-    -fx-background-radius: 4px;
-    border-radius: 4px;
-}
-
-.remember-checkbox:selected .box {
-    -fx-background-color: #3b82f6;
-    background-color: #3b82f6;
-    -fx-border-color: #3b82f6;
-    border-color: #3b82f6;
-}
-
-/* Texto secundario */
-.text-secondary {
-    -fx-text-fill: #64748b;
-    color: #64748b;
-    -fx-font-size: 14px;
-    font-size: 14px;
-}
-
-/* Link */
-.link-label {
-    -fx-text-fill: #3b82f6;
-    color: #3b82f6;
-    -fx-font-weight: bold;
-    font-weight: bold;
-    -fx-font-size: 14px;
-    font-size: 14px;
-    -fx-cursor: hand;
-    cursor: pointer;
-}
-
-.link-label:hover {
-    -fx-text-fill: #2563eb;
-    color: #2563eb;
-    -fx-underline: true;
-    text-decoration: underline;
-}
-
-/* Error */
-.error-label {
-    -fx-text-fill: #ef4444;
-    color: #ef4444;
-    -fx-font-size: 13px;
-    font-size: 13px;
-    -fx-font-weight: bold;
-    font-weight: bold;
-}
-
-/* ============================================
-   HEADER
-   ============================================ */
-
-.header {
-    -fx-background-color: #1e293b;
-    background-color: #1e293b;
-}
-
-.header-title {
-    -fx-font-size: 20px;
-    font-size: 20px;
-    -fx-font-weight: bold;
-    font-weight: bold;
-    -fx-text-fill: white;
-    color: white;
-}
-
-.user-label {
-    -fx-text-fill: #94a3b8;
-    color: #94a3b8;
+.field-label {
     -fx-font-size: 12px;
-    font-size: 12px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -soteria-fg-muted;
 }
 
-/* ============================================
-   CHAT PANEL
-   ============================================ */
-
-.chat-panel {
-    -fx-background-color: #ffffff;
-    background-color: #ffffff;
+.input-field {
+    -fx-font-size: 14px;
 }
 
+.primary-button {
+    -fx-font-size: 15px;
+    -fx-font-weight: bold;
+    -fx-padding: 14px 22px;
+    -fx-background-color: -soteria-accent;
+    -fx-text-fill: -soteria-bg;
+    -fx-background-radius: 10px;
+    -fx-cursor: hand;
+}
+
+.primary-button:hover,
+.primary-button:focus,
+/* stylelint-disable-next-line selector-pseudo-class-no-unknown */
+.primary-button:focused {
+    -fx-background-color: derive(-soteria-accent, -8%);
+}
+
+.primary-button:disabled {
+    -fx-opacity: 0.55;
+}
+
+.error-label {
+    -fx-text-fill: -soteria-danger;
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+}
+
+.boot-status,
+.caption-label {
+    -fx-text-fill: -soteria-fg-muted;
+    -fx-font-size: 12px;
+}
+
+.recommended-tag {
+    -fx-font-size: 10px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -soteria-success;
+    -fx-background-color: -soteria-success-soft;
+    -fx-background-radius: 4px;
+    -fx-padding: 2 7 2 7;
+}
+
+.size-tag {
+    -fx-font-size: 11px;
+    -fx-text-fill: -soteria-fg-muted;
+    -fx-font-family: "JetBrains Mono", "Consolas", monospace;
+}
+
+.success-button {
+    -fx-background-color: -soteria-success;
+    -fx-text-fill: -soteria-bg;
+    -fx-background-radius: 10px;
+    -fx-font-weight: bold;
+    -fx-padding: 14px 22px;
+    -fx-cursor: hand;
+}
+
+.success-button:hover,
+.success-button:focus,
+/* stylelint-disable-next-line selector-pseudo-class-no-unknown */
+.success-button:focused {
+    -fx-background-color: derive(-soteria-success, -8%);
+}
+
+.flat-button {
+    -fx-background-color: transparent;
+    -fx-text-fill: -soteria-fg-muted;
+    -fx-padding: 14px 22px;
+    -fx-cursor: hand;
+}
+
+.flat-button:hover {
+    -fx-background-color: -soteria-bg-subtle;
+    -fx-text-fill: -soteria-fg;
+}
+
+/* ==========================================================
+   Chat (legacy skin — will be replaced by the voice-first shell)
+   ========================================================== */
+
+.chat-panel,
 .chat-messages {
-    -fx-background-color: #ffffff;
-    background-color: #ffffff;
-    -fx-padding: 10px;
-    padding: 10px;
+    -fx-background-color: -soteria-bg;
 }
 
-/* Burbujas de chat */
 .chat-bubble-user {
-    -fx-background-color: #3b82f6;
-    background-color: #3b82f6;
-    -fx-background-radius: 16px;
-    border-radius: 16px;
-    -fx-padding: 12px 16px;
-    padding: 12px 16px;
+    -fx-background-color: -soteria-accent;
+    -fx-background-radius: 18px 18px 4px 18px;
+    -fx-padding: 10px 14px;
+}
+
+.chat-bubble-user-text {
+    -fx-fill: -soteria-bg;
+    -fx-font-size: 14px;
 }
 
 .chat-bubble-bot {
-    -fx-background-color: #f1f5f9;
-    background-color: #f1f5f9;
-    -fx-background-radius: 16px;
-    border-radius: 16px;
-    -fx-padding: 12px 16px;
-    padding: 12px 16px;
+    -fx-background-color: -soteria-bg-elevated;
+    -fx-background-radius: 18px 18px 18px 4px;
+    -fx-padding: 10px 14px;
+    -fx-border-color: -soteria-border;
+    -fx-border-radius: 18px 18px 18px 4px;
+    -fx-border-width: 1px;
 }
 
-/* ============================================
-   CHAT INPUT BAR
-   ============================================ */
+.chat-bubble-bot-text {
+    -fx-fill: -soteria-fg;
+    -fx-font-size: 14px;
+}
+
+.thinking-dots {
+    -fx-spacing: 4px;
+    -fx-padding: 4px 8px;
+    -fx-alignment: center-left;
+}
+
+.thinking-dot {
+    -fx-fill: -soteria-accent;
+}
 
 .chat-input-bar {
-    -fx-background-color: #f8fafc;
-    background-color: #f8fafc;
-    -fx-border-color: #e2e8f0;
-    border-color: #e2e8f0;
+    -fx-background-color: -soteria-bg-subtle;
+    -fx-border-color: -soteria-border;
     -fx-border-width: 1px 0 0 0;
-    border-width: 1px 0 0 0;
-    -fx-padding: 10px;
-    padding: 10px;
 }
 
-.text-field {
-    -fx-background-color: white;
-    background-color: white;
-    -fx-border-color: #e2e8f0;
-    border-color: #e2e8f0;
-    -fx-border-width: 2px;
-    border-width: 2px;
-    -fx-border-radius: 20px;
-    border-radius: 20px;
-    -fx-background-radius: 20px;
-    border-radius: 20px;
-    -fx-padding: 10px 15px;
-    padding: 10px 15px;
-}
-
-.text-field:focused {
-    -fx-border-color: #3b82f6;
-    border-color: #3b82f6;
+.voice-button,
+.send-button {
+    -fx-font-size: 16px;
+    -fx-background-radius: 24px;
+    -fx-min-width: 48px;
+    -fx-min-height: 48px;
+    -fx-cursor: hand;
 }
 
 .voice-button {
-    -fx-background-color: #10b981;
-    background-color: #10b981;
-    -fx-text-fill: white;
-    color: white;
-    -fx-font-size: 18px;
-    font-size: 18px;
-    -fx-background-radius: 25px;
-    border-radius: 25px;
-    -fx-min-width: 50px;
-    min-width: 50px;
-    -fx-min-height: 50px;
-    min-height: 50px;
-    -fx-cursor: hand;
-    cursor: pointer;
+    -fx-background-color: -soteria-accent;
+    -fx-text-fill: -soteria-bg;
 }
 
 .voice-button:hover {
-    -fx-background-color: #059669;
-    background-color: #059669;
+    -fx-background-color: derive(-soteria-accent, -8%);
 }
 
 .send-button {
-    -fx-background-color: #3b82f6;
-    background-color: #3b82f6;
-    -fx-text-fill: white;
-    color: white;
-    -fx-font-size: 18px;
-    font-size: 18px;
-    -fx-background-radius: 25px;
-    border-radius: 25px;
-    -fx-min-width: 50px;
-    min-width: 50px;
-    -fx-min-height: 50px;
-    min-height: 50px;
-    -fx-cursor: hand;
-    cursor: pointer;
+    -fx-background-color: -soteria-accent-strong;
+    -fx-text-fill: -soteria-bg;
 }
 
 .send-button:hover {
-    -fx-background-color: #2563eb;
-    background-color: #2563eb;
+    -fx-background-color: derive(-soteria-accent-strong, -8%);
 }
 
-/* ============================================
-   STATUS BAR
-   ============================================ */
+/* ==========================================================
+   Status bar.
+   ========================================================== */
 
 .status-bar {
-    -fx-background-color: #f1f5f9;
-    background-color: #f1f5f9;
-    -fx-border-color: #e2e8f0;
-    border-color: #e2e8f0;
+    -fx-background-color: -soteria-bg-subtle;
+    -fx-border-color: -soteria-border;
     -fx-border-width: 1px 0 0 0;
-    border-width: 1px 0 0 0;
-    -fx-padding: 5px 15px;
-    padding: 5px 15px;
 }
 
-.status-label {
-    -fx-text-fill: #64748b;
-    color: #64748b;
-    -fx-font-size: 12px;
-    font-size: 12px;
-}
-
+.status-label,
 .ai-status {
-    -fx-text-fill: #64748b;
-    color: #64748b;
+    -fx-text-fill: -soteria-fg-muted;
     -fx-font-size: 12px;
-    font-size: 12px;
 }
 
-/* ============================================
-   FOOTER
-   ============================================ */
+/* ==========================================================
+   Scroll pane — transparent, PrimerDark skins the bar
+   ========================================================== */
 
-.footer {
-    -fx-background-color: #1e293b;
-    background-color: #1e293b;
-}
-
-.footer-text {
-    -fx-text-fill: #94a3b8;
-    color: #94a3b8;
-    -fx-font-size: 11px;
-    font-size: 11px;
-}
-
-/* ============================================
-   SCROLLPANE
-   ============================================ */
-
-.scroll-pane {
-    -fx-background-color: transparent;
-    background-color: transparent;
-    -fx-background: transparent;
-    background: transparent;
-}
-
+.scroll-pane,
 .scroll-pane .viewport {
     -fx-background-color: transparent;
-    background-color: transparent;
 }
 
-.scroll-pane .scroll-bar {
-    -fx-background-color: transparent;
-    background-color: transparent;
+/* ==========================================================
+   Voice-first shell
+   ========================================================== */
+
+.voice-shell {
+    -fx-background-color: -soteria-bg;
 }
 
-.scroll-pane .scroll-bar .thumb {
-    -fx-background-color: #cbd5e1;
-    background-color: #cbd5e1;
-    -fx-background-radius: 5px;
-    border-radius: 5px;
+.top-bar {
+    -fx-background-color: -soteria-bg;
 }
 
-.scroll-pane .scroll-bar .thumb:hover {
-    -fx-background-color: #94a3b8;
-    background-color: #94a3b8;
+.brand-label {
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -soteria-fg;
 }
 
-/* ============================================
-   TEXTAREA
-   ============================================ */
+.status-pill {
+    -fx-background-color: -soteria-bg-subtle;
+    -fx-background-radius: 999px;
+    -fx-border-color: -soteria-border;
+    -fx-border-radius: 999px;
+    -fx-border-width: 1px;
+}
 
-.text-area {
-    -fx-background-color: white;
-    background-color: white;
-    -fx-border-color: #e2e8f0;
-    border-color: #e2e8f0;
-    -fx-border-width: 2px;
-    border-width: 2px;
-    -fx-border-radius: 8px;
-    border-radius: 8px;
-    -fx-background-radius: 8px;
-    border-radius: 8px;
-    -fx-padding: 10px;
-    padding: 10px;
+.status-pill-label {
+    -fx-font-size: 11px;
+    -fx-text-fill: -soteria-fg-muted;
+}
+
+.status-dot {
+    -fx-fill: -soteria-fg-muted;
+}
+
+.status-dot.ready {
+    -fx-fill: -soteria-success;
+    -fx-effect: dropshadow(gaussian, #10b981, 8, 0.4, 0, 0);
+}
+
+.status-dot.warming {
+    -fx-fill: -soteria-warning;
+    -fx-effect: dropshadow(gaussian, #f59e0b, 6, 0.3, 0, 0);
+}
+
+.status-dot.offline {
+    -fx-fill: -soteria-fg-muted;
+}
+
+.status-dot.alert {
+    -fx-fill: -soteria-danger;
+    -fx-effect: dropshadow(gaussian, #ef4444, 10, 0.5, 0, 0);
+}
+
+.voice-center {
+    -fx-background-color: -soteria-bg;
+}
+
+.subtitle-label {
     -fx-font-size: 14px;
-    font-size: 14px;
+    -fx-text-fill: -soteria-fg;
+    -fx-font-weight: 500;
 }
 
-.text-area:focused {
-    -fx-border-color: #3b82f6;
-    border-color: #3b82f6;
+.partial-transcript {
+    -fx-font-size: 13px;
+    -fx-text-fill: -soteria-fg-muted;
+    -fx-font-style: italic;
 }
 
-.text-area .content {
+/* ==========================================================
+   Bottom FABs
+   ========================================================== */
+
+.fab-row {
+    -fx-background-color: -soteria-bg;
+}
+
+.fab-icon {
+    -fx-icon-color: -soteria-bg;
+}
+
+.chat-fab .fab-icon {
+    -fx-icon-color: -soteria-fg;
+}
+
+.send-button .fab-icon {
+    -fx-icon-color: -soteria-bg;
+}
+
+.mic-fab {
+    -fx-min-width: 72px;
+    -fx-min-height: 72px;
+    -fx-pref-width: 72px;
+    -fx-pref-height: 72px;
+    -fx-background-radius: 36px;
+    -fx-background-color: -soteria-accent;
+    -fx-text-fill: -soteria-bg;
+    -fx-font-size: 24px;
+    -fx-padding: 0;
+    -fx-content-display: center;
+    -fx-alignment: center;
+    -fx-cursor: hand;
+    -fx-effect: dropshadow(gaussian, #06b6d4, 20, 0.45, 0, 0);
+}
+
+.mic-fab:hover,
+.mic-fab:focus,
+/* stylelint-disable-next-line selector-pseudo-class-no-unknown */
+.mic-fab:focused {
+    -fx-background-color: derive(-soteria-accent, -6%);
+}
+
+.mic-fab-active {
+    -fx-background-color: -soteria-danger;
+    -fx-effect: dropshadow(gaussian, #ef4444, 28, 0.55, 0, 0);
+}
+
+.mic-fab-active:hover {
+    -fx-background-color: derive(-soteria-danger, -6%);
+}
+
+.alert-fab {
+    -fx-min-width: 50px;
+    -fx-min-height: 50px;
+    -fx-pref-width: 50px;
+    -fx-pref-height: 50px;
+    -fx-background-radius: 25px;
+    -fx-background-color: -soteria-danger-soft;
+    -fx-text-fill: -soteria-danger;
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+    -fx-padding: 0;
+    -fx-content-display: center;
+    -fx-alignment: center;
+    -fx-border-color: -soteria-danger;
+    -fx-border-radius: 25px;
+    -fx-border-width: 1.5px;
+    -fx-cursor: hand;
+}
+
+.alert-fab:hover {
+    -fx-background-color: -soteria-danger;
+    -fx-text-fill: -soteria-bg;
+}
+
+.chat-fab {
+    -fx-min-width: 50px;
+    -fx-min-height: 50px;
+    -fx-pref-width: 50px;
+    -fx-pref-height: 50px;
+    -fx-background-radius: 25px;
+    -fx-background-color: -soteria-bg-elevated;
+    -fx-text-fill: -soteria-fg;
+    -fx-font-size: 17px;
+    -fx-padding: 0;
+    -fx-content-display: center;
+    -fx-alignment: center;
+    -fx-border-color: -soteria-border;
+    -fx-border-radius: 25px;
+    -fx-border-width: 1px;
+    -fx-cursor: hand;
+}
+
+.chat-fab:hover {
+    -fx-background-color: -soteria-border;
+}
+
+/* ==========================================================
+   Chat bottom sheet
+   ========================================================== */
+
+.chat-sheet {
+    -fx-background-color: -soteria-bg-subtle;
+    -fx-background-radius: 18px 18px 0 0;
+    -fx-border-color: -soteria-border;
+    -fx-border-width: 1px 1px 0 1px;
+    -fx-border-radius: 18px 18px 0 0;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.6), 24, 0.3, 0, -6);
+}
+
+.sheet-grabber {
+    -fx-background-color: -soteria-border;
+    -fx-background-radius: 2px;
+    -fx-translate-y: 8;
+}
+
+.sheet-header {
     -fx-background-color: transparent;
-    background-color: transparent;
+}
+
+.sheet-title {
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -soteria-fg;
+}
+
+.sheet-close {
+    -fx-background-color: transparent;
+    -fx-text-fill: -soteria-fg-muted;
+    -fx-font-size: 16px;
+    -fx-cursor: hand;
+    -fx-padding: 4 10;
+}
+
+.sheet-close:hover {
+    -fx-text-fill: -soteria-fg;
+    -fx-background-color: -soteria-bg-elevated;
+    -fx-background-radius: 6px;
+}
+
+.chat-scroll,
+.chat-scroll .viewport {
+    -fx-background: transparent;
+    -fx-background-color: transparent;
+}
+
+/* ==========================================================
+   History Sidebar (Modern Drawer)
+   ========================================================== */
+
+.history-sidebar {
+    -fx-background-color: -soteria-bg-elevated;
+    -fx-border-color: -soteria-border;
+    -fx-border-width: 0 1px 0 0;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.4), 15, 0.2, 5, 0);
+}
+
+.sidebar-title {
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -soteria-fg;
+}
+
+.new-chat-button {
+    -fx-background-color: -soteria-accent-soft;
+    -fx-text-fill: -soteria-accent;
+    -fx-border-color: -soteria-accent-strong;
+    -fx-border-radius: 8px;
+    -fx-background-radius: 8px;
+    -fx-font-weight: bold;
+    -fx-padding: 10px;
+    -fx-cursor: hand;
+}
+
+.new-chat-button:hover {
+    -fx-background-color: -soteria-accent-strong;
+    -fx-text-fill: -soteria-bg;
+}
+
+.sidebar-settings-button {
+    -fx-background-color: transparent;
+    -fx-text-fill: -soteria-fg;
+    -fx-border-color: -soteria-border;
+    -fx-border-radius: 8px;
+    -fx-background-radius: 8px;
+    -fx-font-weight: bold;
+    -fx-padding: 10px;
+    -fx-cursor: hand;
+    -fx-graphic-text-gap: 8px;
+    -fx-content-display: LEFT;
+}
+
+.sidebar-settings-button:hover {
+    -fx-background-color: -soteria-bg-subtle;
+    -fx-border-color: -soteria-accent-strong;
+}
+
+.settings-overlay {
+    -fx-background-color: rgba(0, 0, 0, 0.55);
+    -fx-padding: 16px;
+    -fx-alignment: center;
+}
+
+.settings-card {
+    -fx-background-color: -soteria-bg-elevated;
+    -fx-background-radius: 14px;
+    -fx-border-color: -soteria-border;
+    -fx-border-radius: 14px;
+    -fx-border-width: 1px;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.45), 20, 0.15, 0, 6);
+}
+
+.settings-title {
+    -fx-font-size: 18px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -soteria-fg;
+}
+
+.settings-section-label {
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -soteria-fg-muted;
+}
+
+.settings-body-label {
+    -fx-font-size: 13px;
+    -fx-text-fill: -soteria-fg;
+}
+
+.settings-value-label {
+    -fx-font-size: 12px;
+    -fx-text-fill: -soteria-accent;
+}
+
+.settings-scroll,
+.settings-scroll .viewport {
+    -fx-background-color: transparent;
+}
+
+.settings-check {
+    -fx-text-fill: -soteria-fg;
+}
+
+.settings-check .box {
+    -fx-background-color: -soteria-bg-subtle;
+    -fx-border-color: -soteria-border;
+}
+
+.session-item {
+    -fx-padding: 12px;
+    -fx-background-radius: 8px;
+    -fx-cursor: hand;
+}
+
+.session-item:hover {
+    -fx-background-color: -soteria-bg-subtle;
+}
+
+.session-item-selected {
+    -fx-background-color: -soteria-bg-subtle;
+    -fx-border-color: -soteria-accent;
+    -fx-border-width: 0 0 0 3px;
+}
+
+.session-delete-button {
+    -fx-background-color: transparent;
+    -fx-padding: 6px 8px;
+    -fx-cursor: hand;
+    -fx-background-radius: 8px;
+}
+
+.session-delete-button:hover {
+    -fx-background-color: -soteria-danger-soft;
+}
+
+.session-delete-icon {
+    -fx-icon-color: -soteria-fg-muted;
+}
+
+.session-delete-button:hover .session-delete-icon {
+    -fx-icon-color: -soteria-danger;
+}
+
+.session-title {
+    -fx-font-size: 13px;
+    -fx-text-fill: -soteria-fg;
+}
+
+.session-date {
+    -fx-font-size: 11px;
+    -fx-text-fill: -soteria-fg-muted;
+}
+
+.icon-button {
+    -fx-background-color: transparent;
+    -fx-cursor: hand;
+}
+
+.fab-icon-alt {
+    -fx-icon-color: -soteria-fg-muted;
+}
+
+.icon-button:hover .fab-icon-alt {
+    -fx-icon-color: -soteria-accent;
+}
+
+.no-bg-scroll,
+.no-bg-scroll .viewport {
+    -fx-background-color: transparent;
+}
+
+/* ==========================================================
+   Safety Box (Deterministic Protocol Display)
+   ========================================================== */
+
+.safety-box {
+    -fx-background-color: -soteria-danger-soft;
+    -fx-border-color: -soteria-danger;
+    -fx-border-width: 2px;
+    -fx-background-radius: 12px;
+    -fx-border-radius: 12px;
+    -fx-padding: 20px;
+    -fx-spacing: 12px;
+    -fx-max-width: 500px;
+}
+
+.safety-title {
+    -fx-font-size: 18px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -soteria-danger;
+}
+
+.safety-step {
+    -fx-font-size: 15px;
+    -fx-text-fill: -soteria-fg;
+    -fx-font-weight: 500;
 }

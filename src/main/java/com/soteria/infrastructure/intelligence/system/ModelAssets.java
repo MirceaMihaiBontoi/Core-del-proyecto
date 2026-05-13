@@ -1,0 +1,58 @@
+package com.soteria.infrastructure.intelligence.system;
+
+/**
+ * Centralized registry for all AI model assets, decoupling hardcoded URLs and filenames
+ * from the downloading and loading logic.
+ * <p>
+ * Ensures consistency across the system and provides fallback URIs (e.g., public HuggingFace
+ * models) if proprietary fine-tuned models are unavailable.
+ * </p>
+ */
+public final class ModelAssets {
+    private ModelAssets() {
+        // Prevent instantiation
+    }
+
+    public static final String MODEL_DIR = "models";
+
+    // STT Model — Lightweight Multilingual ASR (99 languages)
+    public static final String STT_MODEL_NAME = "sherpa-onnx-whisper-small";
+    public static final String STT_MODEL_URL = "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-whisper-small.tar.bz2";
+
+    // Brain (LLM) — Gemma 4 GGUF (Unsloth): LITE = E2B, STABLE/EXPERT = E4B
+    public static final String LLM_LITE_URL = "https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF/resolve/main/gemma-4-E2B-it-Q4_K_M.gguf";
+    public static final String LLM_STABLE_URL = "https://huggingface.co/unsloth/gemma-4-E4B-it-GGUF/resolve/main/gemma-4-E4B-it-Q4_K_M.gguf";
+    public static final String LLM_PRO_URL = "https://huggingface.co/unsloth/gemma-4-E4B-it-GGUF/resolve/main/gemma-4-E4B-it-Q8_0.gguf";
+
+    // Triage (Intent) Model — Specialized crisis/emergency classifier (Local)
+    // Si no está disponible el modelo propio, se descarga CT-XLMR-SE-GGUF como fallback
+    public static final String TRIAGE_MODEL_NAME = "soteria-triage-v1.gguf";
+    public static final String TRIAGE_FALLBACK_URL = "https://huggingface.co/mradermacher/CT-XLMR-SE-GGUF/resolve/main/CT-XLMR-SE.Q4_K_M.gguf";
+
+    // TTS Model — Kokoro-82M for multilingual speech synthesis
+    public static final String TTS_MODEL_NAME = "kokoro-multi-lang-v1_0";
+    public static final String TTS_MODEL_URL = "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-multi-lang-v1_0.tar.bz2";
+
+    // KWS Model — sherpa-onnx KeywordSpotter (3M parameters, Bilingual ZH/EN)
+    public static final String KWS_MODEL_NAME = "sherpa-onnx-kws-zipformer-zh-en-3M-2025-12-20";
+    public static final String KWS_MODEL_URL = "https://github.com/k2-fsa/sherpa-onnx/releases/download/kws-models/sherpa-onnx-kws-zipformer-zh-en-3M-2025-12-20.tar.bz2";
+
+    // VAD Model — Silero VAD for robust speech detection
+    public static final String VAD_MODEL_NAME = "silero_vad.onnx";
+    public static final String VAD_MODEL_URL = "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/silero_vad.onnx";
+
+    public static final String TAR_BZ2_EXT = ".tar.bz2";
+    public static final String CLEANUP_ERROR_MSG = "Failed to delete tar.bz2 after extraction";
+
+    // --- STT Configuration ---
+    public static final int STT_SAMPLE_RATE = 16000;
+    public static final int STT_CHANNELS = 1;
+    public static final int STT_BIT_DEPTH = 16;
+    public static final int VAD_WINDOW_SIZE = 512;
+    
+    // Configurable Parameters
+    public static final float STT_VOLUME_BOOST = 1.0f;
+    public static final float STT_VAD_THRESHOLD = 0.35f;
+    public static final float STT_MIN_SILENCE_DURATION = 0.25f;
+    public static final float STT_MIN_SPEECH_DURATION = 0.5f;
+}

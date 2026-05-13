@@ -1,0 +1,157 @@
+package com.soteria.ui.chat;
+
+import com.soteria.application.chat.InferenceEngine;
+import com.soteria.core.domain.chat.ChatMessage;
+import com.soteria.core.domain.chat.ChatSession;
+import com.soteria.core.port.KnowledgeBase;
+import com.soteria.core.port.TTS;
+import com.soteria.ui.view.ChatViewManager;
+import com.soteria.ui.view.SessionCoordinator;
+import com.soteria.ui.view.SoterIAFace;
+
+import javafx.application.Platform;
+import javafx.scene.layout.VBox;
+
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BiConsumer;
+import java.util.function.BooleanSupplier;
+import java.util.function.Supplier;
+import java.util.logging.Logger;
+
+/**
+ * {@link InferenceEngine.UIUpdateListener} implementation for the HUD: subtitle, face, streaming bot bubble, TTS, and
+ * safety protocol box.
+ *
+ * <p>Streaming bubble guard and per-callback behavior: {@code _chat.spec.md}.</p>
+ */
+final class ChatInferenceUiBridge implements InferenceEngine.UIUpdateListener {
+
+    /**
+     * Immutable bundle of HUD dependencies for {@link ChatInferenceUiBridge#ChatInferenceUiBridge(Dependencies)}.
+     */
+    record Dependencies(
+            ChatViewManager viewManager,
+            SessionCoordinator sessionCoordinator,
+            SoterIAFace face,
+            VBox safetyContainer,
+            KnowledgeBase knowledgeBase,
+            ChatTTSIdleChain ttsIdleChain,
+            Logger logger,
+            Supplier<String> promptReady,
+            String pillReadyToken,
+            String pillAlertToken,
+            BiConsumer<String, String> applyAiStatusI18n,
+            Supplier<ChatSession> activeSession,
+            BooleanSupplier ttsEnabled,
+            Supplier<TTS> ttsService) {
+    }
+
+    private final ChatViewManager viewManager;
+    private final SessionCoordinator sessionCoordinator;
+    private final SoterIAFace face;
+    private final VBox safetyContainer;
+    private final KnowledgeBase knowledgeBase;
+    private final ChatTTSIdleChain ttsIdleChain;
+    private final Logger logger;
+    private final Supplier<String> promptReady;
+    private final String pillReadyToken;
+    private final String pillAlertToken;
+    private final BiConsumer<String, String> applyAiStatusI18n;
+    private final Supplier<ChatSession> activeSession;
+    private final BooleanSupplier ttsEnabled;
+    private final Supplier<TTS> ttsService;
+
+    /** First streaming subtitle chunk of a bot reply opens the bubble; reset when the turn is interrupted. */
+    private final AtomicBoolean botMessageStarted = new AtomicBoolean(false);
+
+    ChatInferenceUiBridge(Dependencies d) {
+        this.viewManager = d.viewManager();
+        this.sessionCoordinator = d.sessionCoordinator();
+        this.face = d.face();
+        this.safetyContainer = d.safetyContainer();
+        this.knowledgeBase = d.knowledgeBase();
+        this.ttsIdleChain = d.ttsIdleChain();
+        this.logger = d.logger();
+        this.promptReady = d.promptReady();
+        this.pillReadyToken = d.pillReadyToken();
+        this.pillAlertToken = d.pillAlertToken();
+        this.applyAiStatusI18n = d.applyAiStatusI18n();
+        this.activeSession = d.activeSession();
+        this.ttsEnabled = d.ttsEnabled();
+        this.ttsService = d.ttsService();
+    }
+
+    /** Allows the next streaming reply to open a bubble again via {@code startBotMessage}. */
+    void resetBotStreamState() {
+        botMessageStarted.set(false);
+    }
+
+    @Override
+    public void onSubtitleUpdate(String text) {
+        Platform.runLater(() -> {
+            if (botMessageStarted.compareAndSet(false, true)) {
+                viewManager.startBotMessage();
+            }
+            viewManager.setSubtitle(text);
+            viewManager.updateBotMessage(text);
+        });
+    }
+
+    @Override
+    public void onFaceStateChange(String state) {
+        Platform.runLater(() -> face.setState(SoterIAFace.State.valueOf(state)));
+    }
+
+    @Override
+    public void onResponseFinalized(String finalMessage, String query) {
+        Platform.runLater(() -> {
+            ChatSession session = activeSession.get();
+            session.addMessage(ChatMessage.model(finalMessage));
+            session.setTimestamp(System.currentTimeMillis());
+
+            if (session.getMessages().size() <= 2) {
+                String title = query.substring(0, Math.min(query.length(), 25));
+                if (query.length() > 25) title += "...";
+                session.setTitle(title);
+            }
+
+            sessionCoordinator.saveCurrentSession();
+            viewManager.updateBotMessage(finalMessage);
+
+            TTS tts = ttsService.get();
+            if (ttsEnabled.getAsBoolean() && tts != null && tts.isSpeaking()) {
+                ttsIdleChain.enqueueAfterSpeechSilence(tts, logger, () -> face.setState(SoterIAFace.State.IDLE));
+            } else {
+                face.setState(SoterIAFace.State.IDLE);
+            }
+
+            viewManager.setSubtitle(promptReady.get());
+        });
+    }
+
+    @Override
+    public void onSpeakSentence(String sentence, String language) {
+        if (ttsEnabled.getAsBoolean()) {
+            TTS tts = ttsService.get();
+            if (tts != null) {
+                tts.setLanguage(language);
+                tts.speakQueued(sentence, language);
+            }
+        }
+    }
+
+    @Override
+    public void onSafetyBoxUpdate(String protocolId, String status) {
+        Platform.runLater(() -> ChatSafetyProtocolBinder.apply(new ChatSafetyProtocolBinder.Request(
+                safetyContainer,
+                knowledgeBase,
+                activeSession.get(),
+                viewManager,
+                face,
+                protocolId,
+                status,
+                pillReadyToken,
+                pillAlertToken,
+                applyAiStatusI18n)));
+    }
+}
