@@ -9,8 +9,10 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Chains background waits until TTS (text-to-speech) playback has finished, so idle UI updates are not racy across
- * overlapping completions.
+ * Serialized {@link CompletableFuture} chain that waits until {@link TTS} stops speaking before running work on the
+ * JavaFX thread, avoiding races across overlapping completions.
+ *
+ * <p>Typical use from {@link ChatInferenceUiBridge#onResponseFinalized}: {@code _chat.spec.md}.</p>
  */
 final class ChatTTSIdleChain {
 
@@ -18,12 +20,12 @@ final class ChatTTSIdleChain {
     private final Object lock = new Object();
 
     /**
-     * After any prior step in this chain, polls until the given {@link TTS} backend stops speaking (no-op when
-     * {@code ttsService} is {@code null}), then runs {@code javafxWork} on the JavaFX application thread.
+     * Chains after the prior step: polls {@link TTS#isSpeaking()} every 80 ms (no-op if {@code ttsService} is {@code null}),
+     * then {@link Platform#runLater(Runnable)} with {@code javafxWork}.
      *
      * @param ttsService TTS backend; may be {@code null}
-     * @param log        receives fine-level noise when a chain step fails
-     * @param javafxWork runnable on the application thread (typically face / subtitle updates)
+     * @param log        FINE-level log when a chain step fails (failure is ignored functionally)
+     * @param javafxWork runnable on the application thread (e.g. face / subtitle)
      */
     void enqueueAfterSpeechSilence(TTS ttsService, Logger log, Runnable javafxWork) {
         synchronized (lock) {
@@ -38,7 +40,7 @@ final class ChatTTSIdleChain {
                             while (active.isSpeaking()) {
                                 Thread.sleep(80);
                             }
-                        } catch (InterruptedException e) {
+                        } catch (InterruptedException _) {
                             Thread.currentThread().interrupt();
                         }
                     })

@@ -16,7 +16,10 @@ import java.util.List;
 import java.util.function.Consumer;
 
 /**
- * Manages chat session persistence, history sidebar, and session switching.
+ * Populates the history sidebar, persists {@link ChatSession} instances via {@link ChatSessionRepository}, and tracks
+ * the in-memory active session.
+ *
+ * <p>List layout, date format, and CSS class names: {@code _view.spec.md}.</p>
  */
 public class SessionCoordinator {
     private final VBox sessionList;
@@ -25,6 +28,9 @@ public class SessionCoordinator {
     private ChatSession activeSession;
     private LocalizationService localizationService;
 
+    /**
+     * @param localizationService used for {@code ui.session.untitled}; may be {@code null} (English fallback string)
+     */
     public void setLocalizationService(LocalizationService localizationService) {
         this.localizationService = localizationService;
     }
@@ -36,27 +42,43 @@ public class SessionCoordinator {
         return "Untitled session";
     }
 
+    /**
+     * @param sessionList   {@link VBox} that holds one row per saved session
+     * @param historySidebar parent container whose visibility toggles the drawer
+     */
     public SessionCoordinator(VBox sessionList, VBox historySidebar) {
         this.sessionList = sessionList;
         this.historySidebar = historySidebar;
     }
 
+    /**
+     * @param session session shown as selected in {@link #refreshSessionList}; does not persist by itself
+     */
     public void setActiveSession(ChatSession session) {
         this.activeSession = session;
     }
 
+    /**
+     * Replaces the active session with a new empty {@link ChatSession} and persists it.
+     *
+     * @return the new active session
+     */
     public ChatSession startNewSession() {
         this.activeSession = new ChatSession();
         saveCurrentSession();
         return activeSession;
     }
 
+    /** Writes {@link #activeSession} to disk if non-null. */
     public void saveCurrentSession() {
         if (activeSession != null) {
             repository.saveSession(activeSession);
         }
     }
 
+    /**
+     * Toggles {@code historySidebar} visibility and {@code managed}; when opening, runs {@code onRefresh} (e.g. list rebuild).
+     */
     public void toggleHistorySidebar(Runnable onRefresh) {
         boolean visible = !historySidebar.isVisible();
         historySidebar.setVisible(visible);
@@ -72,6 +94,13 @@ public class SessionCoordinator {
         historySidebar.setManaged(false);
     }
 
+    /**
+     * Rebuilds {@code sessionList} on the JavaFX application thread from {@link ChatSessionRepository#getAllSessions()}.
+     *
+     * @param currentActive      session whose row gets the selected style, or {@code null}
+     * @param onSessionSelected  invoked when the user clicks a row (title/date area)
+     * @param onSessionDeleted   invoked after {@link ChatSessionRepository#delete} for the removed id
+     */
     public void refreshSessionList(ChatSession currentActive, Consumer<ChatSession> onSessionSelected,
             Consumer<ChatSession> onSessionDeleted) {
         Platform.runLater(() -> {
@@ -121,6 +150,7 @@ public class SessionCoordinator {
         });
     }
 
+    /** @return the last {@link #setActiveSession} or {@link #startNewSession} value, or {@code null} */
     public ChatSession getActiveSession() {
         return activeSession;
     }

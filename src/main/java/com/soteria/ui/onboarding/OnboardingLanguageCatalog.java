@@ -6,7 +6,12 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * Display names for the onboarding language combo box and safe resolution from detected or persisted strings.
+ * Canonical English labels for the onboarding language combo and resolution of detected or persisted language strings.
+ *
+ * <p>{@link #SUPPORTED} is the list shown in the UI. {@link #matchOrDefault(String)} maps free-form input (including
+ * BCP-47 tags and common aliases) to one of those labels, or {@link #DEFAULT} when unknown.</p>
+ *
+ * <p>Alias inventory: {@code _onboarding.spec.md}.</p>
  */
 public final class OnboardingLanguageCatalog {
 
@@ -104,10 +109,13 @@ public final class OnboardingLanguageCatalog {
     }
 
     /**
-     * Maps a locale or free-form language string to one of {@link #SUPPORTED}, case-insensitive.
+     * Resolves a language string to exactly one entry from {@link #SUPPORTED}.
      *
-     * @param lang value from GPS heuristics, saved draft, or {@code null}
-     * @return the matching supported label, or {@link #DEFAULT}
+     * <p>Matching order: null or blank → {@link #DEFAULT}; exact canonical name (ignore case); alias map; primary
+     * subtag before {@code '-'} or {@code '_'} (e.g. {@code es-ES} → {@code es}). Otherwise {@link #DEFAULT}.</p>
+     *
+     * @param lang value from GPS heuristics, saved profile, draft, or {@code null}
+     * @return the matching label from {@link #SUPPORTED}, or {@link #DEFAULT}
      */
     public static String matchOrDefault(String lang) {
         if (lang == null || lang.isBlank()) {

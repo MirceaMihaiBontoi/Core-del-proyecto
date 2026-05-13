@@ -53,12 +53,14 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Main HUD controller: microphone, chat sheet, wake word, inference wiring, SOS dispatch.
- * <p>
- * Dedupe, STT listener assembly, safety protocol layout, and {@link InferenceEngine} UI callbacks live in
- * {@link ChatOutboundDedupe}, {@link ChatSTTListenerFactory}, {@link ChatSafetyProtocolBinder}, and
- * {@link ChatInferenceUiBridge} (plus {@link ChatInputGuards}, {@link ChatTTSIdleChain}, {@link ChatEmergencyDispatch}).
- * </p>
+ * FXML controller for the post-onboarding HUD: face, microphone, chat sheet, session history, safety panel,
+ * settings (language, model, TTS, wake word), and SOS.
+ *
+ * <p>{@link #initialize()} builds the view and initial session with input locked; {@link #init(UserData, BootstrapService, ProfileRepository)}
+ * wires {@link BootstrapService}, localization, profile, and the {@code readyProperty} cycle → STT/TTS services,
+ * {@link InferenceEngine}, and {@link ChatInferenceUiBridge}. User messages (keyboard or STT) pass through deduplication
+ * ({@link ChatInputGuards#normalizeForDedupe} via {@link ChatOutboundDedupe}), then inference on a background thread.
+ * Emergencies: {@link ChatEmergencyDispatch}. Full flow (methods, listeners, state, persistence): {@code _chat.spec.md}.</p>
  */
 public class ChatController {
     private static final Logger logger = Logger.getLogger(ChatController.class.getName());
@@ -217,6 +219,14 @@ public class ChatController {
         handleNewChat();
     }
 
+    /**
+     * Wires profile, bootstrap services, and repository after onboarding; configures language, inference engine,
+     * STT/TTS, and profile-dependent UI.
+     *
+     * @param profile   current user (language, preferences)
+     * @param bootstrap infrastructure facade already initialized
+     * @param profiles  profile persistence
+     */
     public void init(UserData profile, BootstrapService bootstrap, ProfileRepository profiles) {
         this.bootstrap = bootstrap;
         this.localization = bootstrap.localizationService();
@@ -296,7 +306,7 @@ public class ChatController {
         KnowledgeBase kb = bootstrap.knowledgeBase();
         this.inferenceEngine = new InferenceEngine(bootstrap.triageService(), bootstrap.brainService(), kb);
         this.wakeWordService = bootstrap.wakeWordService();
-        this.inferenceUi = new ChatInferenceUiBridge(
+        this.inferenceUi = new ChatInferenceUiBridge(new ChatInferenceUiBridge.Dependencies(
                 viewManager,
                 sessionCoordinator,
                 face,
@@ -310,7 +320,7 @@ public class ChatController {
                 this::setAiStatusI18n,
                 () -> activeSession,
                 () -> ttsEnabled,
-                () -> ttsService);
+                () -> ttsService));
         this.aiAvailable = true;
 
         if (this.ttsService != null) {

@@ -4,8 +4,10 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Thread-safe guard against the same normalized utterance being submitted twice within
- * {@link ChatInputGuards#RAPID_SUBMIT_GUARD_MS} (typed send + STT).
+ * Blocks a second submit of the same normalized text within {@link ChatInputGuards#RAPID_SUBMIT_GUARD_MS} (keyboard and
+ * STT).
+ *
+ * <p>Details: {@code _chat.spec.md} ({@code ChatOutboundDedupe} section).</p>
  */
 final class ChatOutboundDedupe {
 
@@ -13,9 +15,11 @@ final class ChatOutboundDedupe {
     private long lastAtMs = 0;
 
     /**
-     * @param rawText user or STT string
-     * @param fineLog   log template with {@code {0}} = instance id, when duplicate is rejected
-     * @return {@code true} if the submit should proceed; {@code false} if it is a rapid duplicate
+     * @param rawText    user or STT string
+     * @param logger     log target when a duplicate is rejected
+     * @param instanceId replaces {@code {0}} in {@code fineLog}
+     * @param fineLog    {@link Level#FINE} template when rejecting (one parameter = {@code instanceId})
+     * @return {@code true} if the submit should proceed; {@code false} for a rapid duplicate
      */
     synchronized boolean tryAccept(String rawText, Logger logger, String instanceId, String fineLog) {
         String key = ChatInputGuards.normalizeForDedupe(rawText);

@@ -19,9 +19,32 @@ import java.util.function.Supplier;
 import java.util.logging.Logger;
 
 /**
- * Implements {@link InferenceEngine.UIUpdateListener} for the main HUD: subtitles, face, bot stream, TTS idle, safety box.
+ * {@link InferenceEngine.UIUpdateListener} implementation for the HUD: subtitle, face, streaming bot bubble, TTS, and
+ * safety protocol box.
+ *
+ * <p>Streaming bubble guard and per-callback behavior: {@code _chat.spec.md}.</p>
  */
 final class ChatInferenceUiBridge implements InferenceEngine.UIUpdateListener {
+
+    /**
+     * Immutable bundle of HUD dependencies for {@link ChatInferenceUiBridge#ChatInferenceUiBridge(Dependencies)}.
+     */
+    record Dependencies(
+            ChatViewManager viewManager,
+            SessionCoordinator sessionCoordinator,
+            SoterIAFace face,
+            VBox safetyContainer,
+            KnowledgeBase knowledgeBase,
+            ChatTTSIdleChain ttsIdleChain,
+            Logger logger,
+            Supplier<String> promptReady,
+            String pillReadyToken,
+            String pillAlertToken,
+            BiConsumer<String, String> applyAiStatusI18n,
+            Supplier<ChatSession> activeSession,
+            BooleanSupplier ttsEnabled,
+            Supplier<TTS> ttsService) {
+    }
 
     private final ChatViewManager viewManager;
     private final SessionCoordinator sessionCoordinator;
@@ -41,37 +64,24 @@ final class ChatInferenceUiBridge implements InferenceEngine.UIUpdateListener {
     /** First streaming subtitle chunk of a bot reply opens the bubble; reset when the turn is interrupted. */
     private final AtomicBoolean botMessageStarted = new AtomicBoolean(false);
 
-    ChatInferenceUiBridge(
-            ChatViewManager viewManager,
-            SessionCoordinator sessionCoordinator,
-            SoterIAFace face,
-            VBox safetyContainer,
-            KnowledgeBase knowledgeBase,
-            ChatTTSIdleChain ttsIdleChain,
-            Logger logger,
-            Supplier<String> promptReady,
-            String pillReadyToken,
-            String pillAlertToken,
-            BiConsumer<String, String> applyAiStatusI18n,
-            Supplier<ChatSession> activeSession,
-            BooleanSupplier ttsEnabled,
-            Supplier<TTS> ttsService) {
-        this.viewManager = viewManager;
-        this.sessionCoordinator = sessionCoordinator;
-        this.face = face;
-        this.safetyContainer = safetyContainer;
-        this.knowledgeBase = knowledgeBase;
-        this.ttsIdleChain = ttsIdleChain;
-        this.logger = logger;
-        this.promptReady = promptReady;
-        this.pillReadyToken = pillReadyToken;
-        this.pillAlertToken = pillAlertToken;
-        this.applyAiStatusI18n = applyAiStatusI18n;
-        this.activeSession = activeSession;
-        this.ttsEnabled = ttsEnabled;
-        this.ttsService = ttsService;
+    ChatInferenceUiBridge(Dependencies d) {
+        this.viewManager = d.viewManager();
+        this.sessionCoordinator = d.sessionCoordinator();
+        this.face = d.face();
+        this.safetyContainer = d.safetyContainer();
+        this.knowledgeBase = d.knowledgeBase();
+        this.ttsIdleChain = d.ttsIdleChain();
+        this.logger = d.logger();
+        this.promptReady = d.promptReady();
+        this.pillReadyToken = d.pillReadyToken();
+        this.pillAlertToken = d.pillAlertToken();
+        this.applyAiStatusI18n = d.applyAiStatusI18n();
+        this.activeSession = d.activeSession();
+        this.ttsEnabled = d.ttsEnabled();
+        this.ttsService = d.ttsService();
     }
 
+    /** Allows the next streaming reply to open a bubble again via {@code startBotMessage}. */
     void resetBotStreamState() {
         botMessageStarted.set(false);
     }

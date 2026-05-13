@@ -23,11 +23,15 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Manages the UI components and rendering of the chat interface.
- * Handles message bubbles, markdown parsing, and animations.
+ * Builds and updates JavaFX nodes for the chat transcript, status labels, thinking indicator, and slide-up sheet.
+ *
+ * <p>Rich text is a small subset of Markdown ({@code **bold**}, simple lists). Sheet and bubble behavior: {@code _view.spec.md}.</p>
  */
 public class ChatViewManager {
-    
+
+    /**
+     * Nodes supplied by the FXML controller; all mutations assume this instance owns their styling hierarchy.
+     */
     public record UIComponents(
         VBox chatMessages,
         ScrollPane chatScrollPane,
@@ -50,6 +54,9 @@ public class ChatViewManager {
     private TextFlow activeBotFlow = null;
     private HBox activeThinkingIndicator = null;
 
+    /**
+     * @param ui bound controls from the chat layout (must not be {@code null})
+     */
     public ChatViewManager(UIComponents ui) {
         this.ui = ui;
     }

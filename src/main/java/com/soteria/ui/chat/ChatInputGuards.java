@@ -1,7 +1,9 @@
 package com.soteria.ui.chat;
 
 /**
- * Rapid double-submit protection and STT wake-phrase echo suppression for chat / voice paths.
+ * Text normalization and wake-phrase echo filtering for keyboard and STT sends.
+ *
+ * <p>Used with the controller outbound dedupe path: {@code _chat.spec.md}.</p>
  */
 final class ChatInputGuards {
 
@@ -25,7 +27,8 @@ final class ChatInputGuards {
     }
 
     /**
-     * {@code true} when the transcript is only the assistant wake phrase and should not be posted as user text.
+     * @param text STT transcript or user text
+     * @return {@code true} if, after stripping non-letters, the value is only {@code soteria} (assistant wake echo)
      */
     static boolean isWakePhraseEchoTranscript(String text) {
         if (text == null || text.isEmpty()) {

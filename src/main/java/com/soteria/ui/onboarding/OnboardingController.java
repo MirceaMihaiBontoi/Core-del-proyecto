@@ -26,11 +26,14 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Multi-step setup wizard for first launch.
+ * First-launch wizard: model profile and language, then emergency profile, while provisioning runs in the background.
  *
- * <p>Step 1 chooses the on-device Gemma 4 model profile and UI language. Step 2 collects the emergency profile while
- * {@link BootstrapService#startProvisioning} runs. If the user finishes before downloads complete, the
- * installation overlay reflects {@link BootstrapService} progress.</p>
+ * <p>Step 1 selects {@link com.soteria.infrastructure.intelligence.system.SystemCapability.AIModelProfile} and a
+ * language from {@link OnboardingLanguageCatalog#SUPPORTED}. Advancing to step 2 calls
+ * {@link BootstrapService#startProvisioning(com.soteria.infrastructure.intelligence.system.SystemCapability.AIModelProfile, String)}.
+ * Step 2 captures {@link UserData}; finishing shows the installation overlay and delegates to {@link MainApp#completeOnboarding()}.</p>
+ *
+ * <p>Screen flow, threading, and persistence details: {@code _onboarding.spec.md}.</p>
  */
 public class OnboardingController {
 
@@ -132,6 +135,14 @@ public class OnboardingController {
         }
     }
 
+    /**
+     * Wires FXML controls to {@link BootstrapService} state, restores an incomplete profile draft if any, and starts
+     * background location and phone detection.
+     *
+     * @param bootstrap bootstrap facade (normally after {@link BootstrapService#preInitialize()})
+     * @param profiles  persisted profile access
+     * @param mainApp   application shell for completing onboarding
+     */
     public void init(BootstrapService bootstrap, ProfileRepository profiles, MainApp mainApp) {
         this.bootstrap = bootstrap;
         this.profiles = profiles;

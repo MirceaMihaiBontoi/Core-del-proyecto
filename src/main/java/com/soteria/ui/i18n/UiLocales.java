@@ -5,23 +5,26 @@ import com.soteria.ui.onboarding.OnboardingLanguageCatalog;
 import java.util.Locale;
 
 /**
- * Maps persisted onboarding / settings language labels to JavaFX / ResourceBundle locales.
+ * Maps onboarding and settings language values to {@link java.util.Locale} for UI
+ * {@link java.util.ResourceBundle} loading.
  *
- * <p>Resource files under {@code src/main/resources/i18n/}:
- * {@code messages.properties} (default English), {@code messages_es.properties},
- * {@code messages_fr.properties}, {@code messages_de.properties},
- * {@code messages_it.properties}, {@code messages_pt.properties},
- * {@code messages_ro.properties}, {@code messages_ca.properties} (Valencian UI strings; {@code ca} is the JVM bundle key),
- * {@code messages_zh_CN.properties}, {@code messages_ru.properties},
- * {@code messages_ar.properties}, {@code messages_ja.properties}.
- * {@link java.util.ResourceBundle} loads {@code messages_fr} for {@link java.util.Locale#FRENCH}, etc.
+ * <p>Input is normalized by {@link com.soteria.ui.onboarding.OnboardingLanguageCatalog#matchOrDefault(String)}.
+ * Bundle file names and the full locale matrix are documented in {@code _i18n.spec.md}.
  */
 public final class UiLocales {
 
     private UiLocales() {
     }
 
-    /** English if {@code preferred} is null or blank. */
+    /**
+     * Resolves the user's preferred language string to a {@link Locale}.
+     *
+     * <p>Null, blank, and unrecognized values fall back to English via
+     * {@link com.soteria.ui.onboarding.OnboardingLanguageCatalog#matchOrDefault(String)}.
+     *
+     * @param preferred persisted profile value, onboarding selection, or {@code null}
+     * @return the locale for resource bundle lookup (never {@code null})
+     */
     public static Locale fromPreferredLanguage(String preferred) {
         String canonical = OnboardingLanguageCatalog.matchOrDefault(preferred);
         if ("Spanish".equals(canonical)) {

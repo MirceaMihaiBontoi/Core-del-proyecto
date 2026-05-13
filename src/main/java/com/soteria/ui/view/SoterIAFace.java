@@ -18,17 +18,14 @@ import javafx.scene.shape.StrokeLineCap;
 import javafx.util.Duration;
 
 /**
- * Minimalist animated face for the voice-first shell.
+ * Minimal {@link StackPane} “face” (disc, eyes, mouth, glow, ring) for voice UI feedback.
  *
- * The face itself is intentionally tiny (disc + two dot eyes + arc mouth); the
- * "neon" feel is carried by a soft outer glow and a ring that pulses outward
- * when SoterIA is listening. Five states cover the full voice loop: idle,
- * listening, thinking, speaking, alert. Each state owns a single Timeline;
- * switching states stops the current one and resets transient properties
- * before the next one runs, so transitions are always clean.
+ * <p>{@link State} selects one looping {@link Timeline}; a change stops the previous animation and resets geometry.
+ * State meanings and color palette: {@code _view.spec.md}.</p>
  */
 public final class SoterIAFace extends StackPane {
 
+    /** Stages of the voice interaction loop; see {@link SoterIAFace} class description. */
     public enum State { IDLE, LISTENING, THINKING, SPEAKING, ALERT }
 
     private static final Color ACCENT = Color.web("#06b6d4");
@@ -50,10 +47,14 @@ public final class SoterIAFace extends StackPane {
     private Timeline activeAnimation;
     private final ObjectProperty<State> state = new SimpleObjectProperty<>(State.IDLE);
 
+    /** Same as {@link #SoterIAFace(double)} with radius {@code 85}. */
     public SoterIAFace() {
         this(85);
     }
 
+    /**
+     * @param faceRadius radius of the main face circle; layout helpers use {@link #preferredDiameter()}
+     */
     public SoterIAFace(double faceRadius) {
         this.baseRadius = faceRadius;
         this.eyeOffsetX = faceRadius * 0.32;
@@ -106,6 +107,7 @@ public final class SoterIAFace extends StackPane {
         applyState(State.IDLE);
     }
 
+    /** @param newState next visual mode; stops the previous {@link Timeline} and starts the one for this state */
     public void setState(State newState) {
         state.set(newState);
     }
@@ -281,6 +283,7 @@ public final class SoterIAFace extends StackPane {
         activeAnimation = tl;
     }
 
+    /** Suggested bounding size for parent layout ({@code 4} × face radius). */
     public double preferredDiameter() {
         return baseRadius * 4;
     }

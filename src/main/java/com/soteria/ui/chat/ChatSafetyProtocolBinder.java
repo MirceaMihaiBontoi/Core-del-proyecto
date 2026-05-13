@@ -13,12 +13,15 @@ import com.soteria.ui.view.ChatViewManager;
 import com.soteria.ui.view.SoterIAFace;
 
 /**
- * Maps triage protocol state to the safety sidebar and session emergency fields. Must run on the JavaFX thread.
+ * Maps triage protocol state (id + status) to the safety sidebar and {@link ChatSession} emergency fields. Must run on
+ * the JavaFX application thread.
+ *
+ * <p>Status matrix and CSS: {@code _chat.spec.md}.</p>
  */
 final class ChatSafetyProtocolBinder {
 
     /**
-     * Inputs for {@link #apply(Request)}.
+     * Aggregated inputs for {@link #apply(Request)} (passed from {@link ChatInferenceUiBridge#onSafetyBoxUpdate}).
      */
     record Request(
             VBox safetyContainer,
@@ -36,6 +39,9 @@ final class ChatSafetyProtocolBinder {
     private ChatSafetyProtocolBinder() {
     }
 
+    /**
+     * @param r UI and domain context; must not be {@code null}
+     */
     static void apply(Request r) {
         if ("N/A".equals(r.protocolId()) || "RESOLVED".equals(r.status()) || "INACTIVE".equals(r.status())) {
             if ("RESOLVED".equals(r.status())) {

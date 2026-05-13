@@ -25,10 +25,11 @@ import com.soteria.infrastructure.intelligence.system.SystemCapability;
 import com.soteria.ui.i18n.UiLocales;
 
 /**
- * JavaFX entry point. Decides between onboarding (first run) and chat
- * (returning user) based on whether a profile exists on disk, applies
- * the AtlantaFX Primer Dark theme, and kicks off the background boot
- * as soon as the window is up.
+ * JavaFX {@link Application} entry: Primer Dark theme, {@link BootstrapService#preInitialize()}, then either
+ * {@link OnboardingController} (no complete profile) or chat pre-load for a returning user.
+ *
+ * <p>Listens on {@link BootstrapService#readyProperty()} to swap to {@link ChatController} when provisioning finishes.
+ * Window close and {@link #stop()} call {@link BootstrapService#shutdown()}.</p>
  */
 public class MainApp extends Application {
 
@@ -40,10 +41,14 @@ public class MainApp extends Application {
 
     private static final String MAIN_CSS = "/styles/main.css";
 
-    // Mobile-preview window size (≈9:19.5, close to modern Android viewport)
+    /** Mobile-style viewport (~9:19.5). */
     private static final double MOBILE_WIDTH = 400;
     private static final double MOBILE_HEIGHT = 860;
 
+    /**
+     * Applies {@link PrimerDark}, runs {@link BootstrapService#preInitialize()}, registers {@code readyProperty}
+     * navigation, and shows onboarding or begins chat session setup from {@link ProfileRepository#load()}.
+     */
     @Override
     public void start(Stage primaryStage) throws Exception {
         this.primaryStage = primaryStage;
@@ -71,6 +76,10 @@ public class MainApp extends Application {
         primaryStage.show();
     }
 
+    /**
+     * Routes to onboarding when {@link UserData#isComplete()} is false; otherwise shows chat and starts
+     * {@link BootstrapService#startProvisioning} with stored model and language.
+     */
     private void initializeSession(UserData profile) {
         if (!profile.isComplete()) {
             launchOnboardingQuietly();
@@ -91,6 +100,9 @@ public class MainApp extends Application {
         }
     }
 
+    /**
+     * Resolves persisted model name to {@link SystemCapability.AIModelProfile}, or recommended hardware default.
+     */
     private SystemCapability.AIModelProfile parseModelProfile(String modelName) {
         SystemCapability capabilities = new SystemCapability();
         if (modelName == null || modelName.isBlank()) {
@@ -100,6 +112,7 @@ public class MainApp extends Application {
         return parsed != null ? parsed : capabilities.getRecommendedProfile();
     }
 
+    /** Swallows exceptions from {@link #showOnboarding()} so startup never aborts the JVM silently without a log line. */
     private void launchOnboardingQuietly() {
         try {
             showOnboarding();
@@ -108,6 +121,10 @@ public class MainApp extends Application {
         }
     }
 
+    /**
+     * Loads onboarding FXML with {@link Locale#getDefault()} bundles, wires {@link OnboardingController}, and replaces
+     * the primary {@link Scene}.
+     */
     private void showOnboarding() throws IOException {
         Locale locale = Locale.getDefault();
         bootstrap.localizationService().setLocale(locale);
@@ -127,13 +144,18 @@ public class MainApp extends Application {
     }
 
     /**
-     * Transition to chat. Called by controller once profile is fully saved.
+     * Called by {@link OnboardingController} after the user finishes setup; re-enters the same navigation gate as
+     * {@link BootstrapService#readyProperty()} so chat opens when bootstrap and profile are both ready.
      */
     public void completeOnboarding() {
         // Just a hint to check if we can navigate now
         tryNavigateToChat();
     }
 
+    /**
+     * If {@link BootstrapService#readyProperty()} is true and disk profile is complete, switches to chat on the FX thread
+     * (idempotent when {@link #chatScreenVisible}).
+     */
     private synchronized void tryNavigateToChat() {
         log.info("Attempting navigation to chat...");
         if (bootstrap.readyProperty().get()) {
@@ -146,6 +168,7 @@ public class MainApp extends Application {
         }
     }
 
+    /** Invoked when bootstrap is ready and a profile row exists; defers UI swap to {@link Platform#runLater(Runnable)}. */
     private void navigateToChatIfRequired(UserData p) {
         if (!p.isComplete()) {
             log.warning("Bootstrap is ready but profile is INCOMPLETE. Cannot navigate yet.");
@@ -166,6 +189,12 @@ public class MainApp extends Application {
         });
     }
 
+    /**
+     * Loads chat FXML with locale from {@link UiLocales#fromPreferredLanguage(String)}, initializes {@link ChatController},
+     * and sets the window title from localized {@code app.title}.
+     *
+     * @param profile complete user profile
+     */
     void showChatScreen(UserData profile) throws IOException {
         Locale locale = UiLocales.fromPreferredLanguage(profile.preferredLanguage());
         bootstrap.localizationService().setLocale(locale);
@@ -192,6 +221,9 @@ public class MainApp extends Application {
         bootstrap.shutdown();
     }
 
+    /**
+     * Ensures llama JNI is on the library path when needed, then {@link Application#launch(String...)}.
+     */
     public static void main(String[] args) {
         LlamaNativeBootstrap.applyIfNeeded();
         launch(args);

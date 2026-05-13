@@ -13,13 +13,15 @@ import com.soteria.ui.view.ChatViewManager;
 import com.soteria.ui.view.SoterIAFace;
 
 /**
- * Factory for the STT (speech-to-text) {@link STTListener} used during mic capture, so {@link ChatController} stays
- * free of a large anonymous class.
+ * Builds the microphone-capture {@link STTListener} for {@link ChatController#beginVoiceCapture()} so the controller
+ * avoids a large anonymous class.
+ *
+ * <p>{@code onResult} / partials / error flow: {@code _chat.spec.md}.</p>
  */
 final class ChatSTTListenerFactory {
 
     /**
-     * Configuration for {@link #create(Params)}.
+     * Injected dependencies; {@code onTranscriptAccepted} runs on the FX thread after {@link ChatOutboundDedupe#tryAccept}.
      */
     record Params(
             String instanceId,
@@ -39,7 +41,9 @@ final class ChatSTTListenerFactory {
     }
 
     /**
-     * @param p listener configuration; {@code p.onTranscriptAccepted()} runs on the FX thread after dedupe
+     * @param p listener configuration; {@code onTranscriptAccepted} on the FX thread when {@code tryAccept} returns
+     *          {@code true}
+     * @return private {@link STTListener} implementation ({@code MicCaptureSttListener})
      */
     static STTListener create(Params p) {
         return new MicCaptureSttListener(p);

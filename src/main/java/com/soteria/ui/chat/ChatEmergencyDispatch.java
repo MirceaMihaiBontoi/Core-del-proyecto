@@ -8,10 +8,14 @@ import com.soteria.core.port.LocationProvider;
 import javafx.application.Platform;
 
 /**
- * Runs SOS-style alert HTTP/send work off the JavaFX thread; callbacks are marshalled with {@link Platform#runLater(Runnable)}.
+ * Runs SOS alert delivery on a background thread ({@code soteria-alert}) and marshals results to the JavaFX thread with
+ * {@link Platform#runLater(Runnable)}.
+ *
+ * <p>{@link EmergencyEvent} and callback details: {@code _chat.spec.md}.</p>
  */
 final class ChatEmergencyDispatch {
 
+    /** Invoked on the JavaFX application thread after attempting {@link AlertService#send}. */
     interface Callbacks {
         void onSuccess(String location);
 
@@ -23,6 +27,13 @@ final class ChatEmergencyDispatch {
     private ChatEmergencyDispatch() {
     }
 
+    /**
+     * @param reason           human-readable reason (prefixed with {@code EMERGENCY: } on the event message)
+     * @param locationProvider source of the location description
+     * @param alertService     delivery channel for the {@link EmergencyEvent}
+     * @param currentUser      full name on the event; if {@code null}, a default literal is used
+     * @param callbacks        invoked on the JavaFX thread for success, send failure, or exception
+     */
     static void start(
             String reason,
             LocationProvider locationProvider,

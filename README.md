@@ -47,7 +47,7 @@ Handles the technical details of the environment:
 - **Bootstrap**: `BootstrapService` orchestrates background downloads, engine loading and a silent LLM warmup turn so the KV cache holds the system prompt before the user's first real message. Exposes observable `statusProperty` / `progressProperty` / `readyProperty` for direct FXML binding.
 
 ### 5. UI Layer (Reactive Interface)
-JavaFX + **AtlantaFX PrimerDark** theme with a thin overrides stylesheet (`main.css`). No login screen — SoterIA is single-user by design:
+JavaFX + **AtlantaFX PrimerDark** theme with a thin overrides stylesheet (`main.css`). No login screen — SoterIA is single-user by design. Package-level documentation for contributors lives in `src/main/java/com/soteria/ui/_ui.spec.md` (with `_chat.spec.md`, `_onboarding.spec.md`, `_view.spec.md`, `_i18n.spec.md` under each subpackage).
 - **Onboarding wizard** (`OnboardingController` + `onboarding-view.fxml`): step 1 picks the on-device Gemma 4 profile (RAM-based *Recommended* tag and weight in GB) and language (pre-selected from GPS/locale, English fallback). Step 2 captures the emergency profile. An installation overlay covers the gap if downloads aren't finished when the user submits.
 - **Chat screen** (`ChatController` + `chat-view.fxml`): conversation with text + voice input, rendered as custom bubbles on top of the PrimerDark base.
 - **Asynchronous Execution**: All I/O and LLM/STT calls run on worker threads; the FX thread only touches the scene graph.
@@ -94,8 +94,6 @@ Using an "English-Core" reasoning approach for maximum precision:
 - **Voice-to-Action**: Real-time offline speech through **Sherpa-ONNX** (mic → VAD → Whisper) for reporting.
 - **Natural Voice Feedback**: Streaming responses spoken through **Kokoro-82M** for eyes-free guidance.
 
-### Operational Logging
-Every dispatched alert is appended to `logs/emergency_alerts.log` as a plain-text audit trail. The file is created lazily on first alert.
 
 ## Project Structure
 
@@ -114,8 +112,12 @@ com.soteria.infrastructure
 └── sensor             # SystemGPSLocation, DevicePhoneDetector
 
 com.soteria.ui
-├── controller         # OnboardingController, ChatController
-└── MainApp            # JavaFX entry point (AtlantaFX PrimerDark)
+├── MainApp.java       # Application entry — theme, bootstrap, onboarding vs chat
+├── chat/              # ChatController + STT/TTS/inference wiring helpers
+├── onboarding/        # OnboardingController, OnboardingLanguageCatalog
+├── view/              # ChatViewManager, SessionCoordinator, SoterIAFace
+├── i18n/              # UiLocales (language label → java.util.Locale)
+└── _ui.spec.md        # UI layer map; per-package specs: chat/, onboarding/, view/, i18n/
 ```
 
 ## System Implementation Standards
