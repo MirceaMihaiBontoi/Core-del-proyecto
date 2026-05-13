@@ -10,6 +10,13 @@ package com.soteria.application.chat;
  */
 public class SentenceSplitter {
 
+    /**
+     * After the first speakable segment of a reply is emitted, the second segment often stalls waiting for
+     * punctuation (e.g. short "por favor," then silence). Flush the next chunk after this many whitespace-delimited
+     * words if no better boundary exists yet. Not used for the third segment onward ({@code sentenceCount == 1} only).
+     */
+    private static final int WORD_FALLBACK_AFTER_FIRST = 5;
+
     /** Called for each completed sentence segment in order. */
     public interface SentenceListener {
         void onSentenceReady(String sentence);
@@ -70,11 +77,50 @@ public class SentenceSplitter {
             boundary = softCommaSplit(text);
         }
 
+        if (boundary == -1 && !isFinal && sentenceCount == 1) {
+            boundary = wordCountFallbackSplit(text);
+        }
+
         if (boundary != -1) {
             return boundary;
         }
 
         return isFinal ? text.length() - 1 : -1;
+    }
+
+    /**
+     * Last char index of the Nth whitespace-delimited word in {@code text} ({@code -1} if fewer than N words).
+     * Used only while building the second segment (exactly one prior segment was emitted for this reply).
+     */
+    private static int endIndexOfWord(String text, int wordNumberOneBased) {
+        int i = 0;
+        int n = text.length();
+        while (i < n && Character.isWhitespace(text.charAt(i))) {
+            i++;
+        }
+        int seen = 0;
+        while (i < n) {
+            while (i < n && !Character.isWhitespace(text.charAt(i))) {
+                i++;
+            }
+            seen++;
+            if (seen == wordNumberOneBased) {
+                return i - 1;
+            }
+            while (i < n && Character.isWhitespace(text.charAt(i))) {
+                i++;
+            }
+        }
+        return -1;
+    }
+
+    /** @return end char index for a segment of {@link #WORD_FALLBACK_AFTER_FIRST} words, or {@code -1} */
+    private static int wordCountFallbackSplit(String text) {
+        if (text == null || text.isEmpty()) {
+            return -1;
+        }
+        int end = endIndexOfWord(text, WORD_FALLBACK_AFTER_FIRST);
+        return end >= 0 ? end : -1;
     }
 
     /**
