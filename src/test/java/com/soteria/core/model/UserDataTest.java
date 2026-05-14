@@ -51,18 +51,19 @@ class UserDataTest {
     }
 
     @Test
-    @DisplayName("isComplete() flags draft/placeholder profiles")
+    @DisplayName("isComplete() only requires a real name (not placeholder / blank / null)")
     void isCompleteRejectsDrafts() {
         assertTrue(sample("Ana").isComplete());
         assertFalse(sample(UserData.INCOMPLETE_NAME).isComplete());
         assertFalse(sample(null).isComplete());
-        
-        // Stricter checks
+
         UserData missingPhone = new UserData("Ana", "", "F", "1990", "Asthma", "112", PREFERRED_STABLE, "ES", null, null);
-        assertFalse(missingPhone.isComplete(), "Should be incomplete without phone");
-        
+        assertTrue(missingPhone.isComplete(), "Phone optional for completion");
+
         UserData missingMedical = new UserData("Ana", "123", "F", "1990", null, "112", PREFERRED_STABLE, "ES", null, null);
-        assertFalse(missingMedical.isComplete(), "Should be incomplete without medical info");
+        assertTrue(missingMedical.isComplete(), "Medical info optional for completion");
+
+        assertFalse(new UserData("   ", PHONE, "F", "1990", MEDICAL, CONTACT, PREFERRED_STABLE, LANG, null, null).isComplete());
     }
 
     @Test

@@ -138,13 +138,13 @@ public class ModelPathResolver {
     public boolean isSTTModelReady() {
         Path path = getSTTModelPath();
         if (!Files.exists(path) || !Files.isDirectory(path)) return false;
-        
+
         try (var stream = Files.list(path)) {
             List<Path> files = stream.toList();
             boolean hasEncoder = files.stream().anyMatch(p -> p.getFileName().toString().endsWith("-encoder.onnx") || p.getFileName().toString().endsWith("-encoder.int8.onnx"));
             boolean hasDecoder = files.stream().anyMatch(p -> p.getFileName().toString().endsWith("-decoder.onnx") || p.getFileName().toString().endsWith("-decoder.int8.onnx"));
             boolean hasTokens = files.stream().anyMatch(p -> p.getFileName().toString().endsWith("-tokens.txt") || p.getFileName().toString().equals("tokens.txt"));
-            
+
             return hasEncoder && hasDecoder && hasTokens;
         } catch (IOException _) {
             return false;
@@ -157,7 +157,7 @@ public class ModelPathResolver {
 
     public boolean isKWSModelReady() {
         Path path = getKWSModelPath();
-        return Files.exists(path) && Files.isDirectory(path) 
+        return Files.exists(path) && Files.isDirectory(path)
             && Files.exists(path.resolve("encoder-epoch-13-avg-2-chunk-16-left-64.onnx"));
     }
 
@@ -167,7 +167,7 @@ public class ModelPathResolver {
 
     public boolean isTTSModelReady() {
         Path path = getTTSModelPath();
-        return Files.exists(path) && Files.isDirectory(path) 
+        return Files.exists(path) && Files.isDirectory(path)
             && Files.exists(path.resolve("model.onnx"))
             && Files.exists(path.resolve("voices.bin"));
     }

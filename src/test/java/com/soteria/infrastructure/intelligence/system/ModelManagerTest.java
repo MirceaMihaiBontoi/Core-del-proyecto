@@ -1,5 +1,6 @@
 package com.soteria.infrastructure.intelligence.system;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -17,13 +18,21 @@ class ModelManagerTest {
     @TempDir
     Path tempDir;
 
-
     private SystemCapability capability;
+
+    /** Saved so {@code user.dir}/models fallback targets the temp tree, not the real repo. */
+    private String savedUserDir;
 
     @BeforeEach
     void setUp() {
-        // Use a 16GB RAM capability for balanced profile testing
+        savedUserDir = System.getProperty("user.dir");
+        System.setProperty("user.dir", tempDir.toString());
         capability = new SystemCapability(16L * 1024 * 1024 * 1024);
+    }
+
+    @AfterEach
+    void tearDown() {
+        System.setProperty("user.dir", savedUserDir);
     }
 
     @Test

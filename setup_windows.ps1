@@ -18,6 +18,76 @@ function Success { param($msg) Write-Host "[OK]    $msg" -ForegroundColor Green 
 function Warn    { param($msg) Write-Host "[WARN]  $msg" -ForegroundColor Yellow }
 function Err     { param($msg) Write-Host "[ERROR] $msg" -ForegroundColor Red; exit 1 }
 
+# -----------------------------------------------------------------------------
+# Native CLI helpers (PowerShell maps java -version stderr to ErrorRecord — use cmd)
+# -----------------------------------------------------------------------------
+function Get-JavaVersionLine {
+    $line = (cmd /c "java -version 2>&1") | Select-Object -First 1
+    if ($line -is [string]) { return $line.Trim() }
+    return [string]$line
+}
+
+function Get-MvnVersionLine {
+    $line = (cmd /c "mvn -version 2>&1") | Select-Object -First 1
+    if ($line -is [string]) { return $line.Trim() }
+    return [string]$line
+}
+
+# Apache Maven is often missing from winget community manifests on a fresh Windows install; use the official binary zip.
+function Ensure-MavenPortable {
+    param(
+        [string]$Version = "3.9.9"
+    )
+    if ($null -ne (Get-Command mvn -ErrorAction SilentlyContinue)) {
+        return
+    }
+
+    $toolsRoot = Join-Path $env:LOCALAPPDATA "SoterIA\tools"
+    $mavenHome = Join-Path $toolsRoot "apache-maven-$Version"
+    $mavenBin  = Join-Path $mavenHome "bin"
+
+    if (-not (Test-Path (Join-Path $mavenBin "mvn.cmd"))) {
+        New-Item -ItemType Directory -Path $toolsRoot -Force | Out-Null
+        $zip = Join-Path $env:TEMP "apache-maven-$Version-bin.zip"
+        $urls = @(
+            "https://dlcdn.apache.org/maven/maven-3/$Version/binaries/apache-maven-$Version-bin.zip",
+            "https://archive.apache.org/dist/maven/maven-3/$Version/binaries/apache-maven-$Version-bin.zip"
+        )
+        Info "Downloading Apache Maven $Version (portable)..."
+        $ok = $false
+        foreach ($url in $urls) {
+            try {
+                Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing
+                $ok = $true
+                break
+            }
+            catch {
+                continue
+            }
+        }
+        if (-not $ok) {
+            Err "Could not download Maven. Install manually from https://maven.apache.org/download.cgi"
+        }
+        Expand-Archive -Path $zip -DestinationPath $toolsRoot -Force
+        Remove-Item $zip -Force -ErrorAction SilentlyContinue
+        if (-not (Test-Path (Join-Path $mavenBin "mvn.cmd"))) {
+            Err "Maven extraction failed under $toolsRoot"
+        }
+        Success "Maven $Version installed to $mavenHome"
+    }
+
+    if ($env:Path -notlike "*$mavenBin*") {
+        $env:Path = "$mavenBin;$env:Path"
+    }
+    $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
+    if ([string]::IsNullOrEmpty($userPath)) {
+        [Environment]::SetEnvironmentVariable("Path", $mavenBin, "User")
+    }
+    elseif ($userPath -notlike "*$mavenBin*") {
+        [Environment]::SetEnvironmentVariable("Path", "$userPath;$mavenBin", "User")
+    }
+}
+
 Write-Host ""
 Write-Host "=============================================" -ForegroundColor Cyan
 Write-Host "   SoterIA - Windows Setup"                  -ForegroundColor Cyan
@@ -60,23 +130,24 @@ if ($wingetAvailable) {
         }
     }
 
-    # Maven
-    Info "Installing Apache Maven..."
-    winget install --id Apache.Maven --accept-source-agreements --accept-package-agreements --silent 2>$null
-    if ($LASTEXITCODE -ne 0) {
-        Warn "Could not install Maven via winget. Download manually from:"
-        Warn "  https://maven.apache.org/download.cgi"
-    }
 } else {
-    Warn "winget is not available. Please install dependencies manually:"
+    Warn "winget is not available. Please install JDK 25 manually if needed:"
     Warn "  - JDK 25: https://jdk.java.net/25/"
-    Warn "  - Maven:  https://maven.apache.org/download.cgi"
+    Warn "Maven will be installed as a portable build under %LOCALAPPDATA%\\SoterIA\\tools if missing."
 }
 
 # -----------------------------------------------------------------------------
 # 3. Refresh PATH for the current session
 # -----------------------------------------------------------------------------
 Info "Refreshing PATH for the current session..."
+$machinePath = [System.Environment]::GetEnvironmentVariable("Path", "Machine")
+$userPath    = [System.Environment]::GetEnvironmentVariable("Path", "User")
+$env:Path    = "$machinePath;$userPath"
+
+# Maven: winget often has no stable package id on clean Windows (2025–2026); use Apache distribution.
+Info "Ensuring Apache Maven..."
+Ensure-MavenPortable -Version "3.9.9"
+
 $machinePath = [System.Environment]::GetEnvironmentVariable("Path", "Machine")
 $userPath    = [System.Environment]::GetEnvironmentVariable("Path", "User")
 $env:Path    = "$machinePath;$userPath"
@@ -91,7 +162,7 @@ if ($null -eq $javaCmd) {
     Err "Java not found in PATH.`nInstall JDK 25 from https://jdk.java.net/25/ and add JAVA_HOME to PATH."
 }
 
-$javaVersionOutput = & java -version 2>&1 | Select-Object -First 1
+$javaVersionOutput = Get-JavaVersionLine
 Info "Active Java: $javaVersionOutput"
 
 $javaMajor = [regex]::Match($javaVersionOutput, '"(\d+)').Groups[1].Value
@@ -108,7 +179,7 @@ $mvnCmd = Get-Command mvn -ErrorAction SilentlyContinue
 if ($null -eq $mvnCmd) {
     Err "Maven not found in PATH.`nInstall Maven from https://maven.apache.org/download.cgi"
 }
-$mvnVersion = & mvn -version 2>&1 | Select-Object -First 1
+$mvnVersion = Get-MvnVersionLine
 Success "Maven: $mvnVersion"
 
 # -----------------------------------------------------------------------------
@@ -212,13 +283,21 @@ if (Test-Path $nativeDir) {
 Success "DLLs copied to $env:TEMP."
 
 # -----------------------------------------------------------------------------
-# 9. Build the project
+# 9. Build (tests omitted for speed; use mvn verify or .\run_test.ps1 separately)
 # -----------------------------------------------------------------------------
-Info "Building SoterIA with Maven..."
+# Produces a runnable package. JUnit is not required for compile or javafx:run.
+# run_test.ps1 runs only the triage ClassifierStressTest.
+Info "Building SoterIA with Maven (clean package, tests omitted)..."
 
 $env:Path = "$sherpaDir;$env:TEMP;$env:Path"
+if ([string]::IsNullOrEmpty($env:MAVEN_OPTS)) {
+    $env:MAVEN_OPTS = "--enable-native-access=ALL-UNNAMED"
+} elseif ($env:MAVEN_OPTS -notlike "*enable-native-access*") {
+    $env:MAVEN_OPTS = "$env:MAVEN_OPTS --enable-native-access=ALL-UNNAMED"
+}
 
-& mvn clean package -DskipTests -q
+# Property must be quoted in PowerShell or "-D..." is parsed incorrectly.
+& mvn clean package "-Dmaven.test.skip=true" -q
 if ($LASTEXITCODE -ne 0) {
     Err "Build failed. Check the Maven output above."
 }

@@ -30,12 +30,13 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 ```
 
 The script will:
-1. Install JDK 25 and Maven via `winget` (if available)
-2. Verify all native libraries are present
-3. Register the sherpa-onnx JARs in your local Maven repository
-4. Copy DLLs to `%TEMP%`
-5. Compile the project
-6. Launch SoterIA
+1. Install JDK 25 via `winget` when available (otherwise install manually; see below)
+2. Ensure **Apache Maven** via a **portable** install under `%LOCALAPPDATA%\SoterIA\tools` when it is missing from `PATH` (on clean Windows in 2025–2026, `winget` often has no reliable `Apache.Maven` package id)
+3. Verify all native libraries are present
+4. Register the sherpa-onnx JARs in your local Maven repository
+5. Copy DLLs to `%TEMP%`
+6. Run **`mvn clean package`** with tests omitted (`maven.test.skip=true`) for a fast runnable build. Full JUnit suite: `mvn verify`. Triage stress driver: **`.\run_test.ps1`** (runs `ClassifierStressTest` only)
+7. Launch SoterIA
 
 ---
 
@@ -68,13 +69,14 @@ java -version
 
 ### 2. Install Apache Maven
 
-**Option A — winget:**
-```powershell
-winget install --id Apache.Maven
-```
+**Recommended — same as `setup_windows.ps1` (portable):**  
+Download the Maven binary zip from [Apache Maven](https://maven.apache.org/download.cgi), extract to e.g. `%LOCALAPPDATA%\SoterIA\tools\apache-maven-3.9.x`, and add the `bin` folder to your user `PATH`.
+
+**Option A — winget (may be unavailable):**  
+Some systems no longer list `Apache.Maven`. If `winget search maven` shows a publisher-verified package, you can use it; otherwise prefer the zip above.
 
 **Option B — manual:**  
-Download from [https://maven.apache.org/download.cgi](https://maven.apache.org/download.cgi), extract to `C:\maven`, and add `C:\maven\bin` to `PATH`.
+Extract to `C:\maven` (or any folder) and add `C:\maven\bin` to `PATH`.
 
 Verify:
 ```powershell
@@ -145,8 +147,10 @@ mvn install:install-file `
 ### 5. Build the Project
 
 ```powershell
-mvn clean package -DskipTests
+mvn clean package "-Dmaven.test.skip=true"
 ```
+
+(On PowerShell, quote the `-D` property so it is not split. To compile tests but skip running them, use `mvn clean package -DskipTests`.)
 
 ### 6. Run the Application
 
@@ -213,6 +217,7 @@ The JVM cannot find `sherpa-onnx-jni.dll`.
 
 Maven is not in `PATH`. Either:
 - Re-open PowerShell after installation so the new `PATH` is loaded
+- If you used the setup script, confirm `%LOCALAPPDATA%\SoterIA\tools\apache-maven-*\bin` is on your user `PATH`
 - Add Maven's `bin` directory manually:
   ```powershell
   $env:Path += ";C:\maven\bin"

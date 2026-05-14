@@ -37,12 +37,12 @@ public record UserData(
     }
 
     /**
-     * Returns {@code true} if the profile has a real name (not {@link #INCOMPLETE_NAME})
-     * and a non-blank emergency contact.
+     * Returns {@code true} if {@code fullName} is set, not {@link #INCOMPLETE_NAME}, and not blank.
      */
     public boolean isComplete() {
-        return fullName != null && !fullName.equals(INCOMPLETE_NAME)
-                && emergencyContact != null && !emergencyContact.isBlank();
+        return fullName != null
+                && !fullName.equals(INCOMPLETE_NAME)
+                && !fullName.isBlank();
     }
 
     @Override
