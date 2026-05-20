@@ -158,7 +158,7 @@ mvn clean package "-Dmaven.test.skip=true"
 $sherpaDir = "$PSScriptRoot\lib\sherpa-onnx\windows"
 mvn javafx:run `
     "-Djava.library.path=$sherpaDir;$env:TEMP" `
-    "-Dde.kherud.llama.lib.path=$env:TEMP\jllama.dll"
+    "-Dde.kherud.llama.lib.path=$env:TEMP"
 ```
 
 ---
@@ -198,9 +198,9 @@ The JVM cannot find `jllama.dll`.
 
 1. Verify the file exists: `Test-Path lib\llama\jllama.dll`
 2. Make sure the setup script copied it to `%TEMP%`
-3. Pass the path explicitly:
+3. Pass the directory that contains `jllama.dll` (not the full path to the file; see `de.kherud.llama.LlamaLoader`):
    ```powershell
-   mvn javafx:run "-Dde.kherud.llama.lib.path=$env:TEMP\jllama.dll"
+   mvn javafx:run "-Dde.kherud.llama.lib.path=$env:TEMP"
    ```
 
 ### `UnsatisfiedLinkError: sherpa-onnx-jni`

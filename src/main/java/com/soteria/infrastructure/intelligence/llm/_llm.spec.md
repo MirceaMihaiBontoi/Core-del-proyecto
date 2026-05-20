@@ -73,14 +73,11 @@ Stop sequences: `<end_of_turn>`, `\end_of_turn>` (tokenizer variants)
 
 ### `LlamaNativeBootstrap`
 
-Loads the native `jllama` library from `lib/llama/` if not already specified via `-Dde.kherud.llama.lib.path`.
+Loads the native `jllama` library from `lib/llama/` if not already specified via `-Dde.kherud.llama.lib.path` (**directory** containing the JNI name from `System.mapLibraryName("jllama")`, e.g. `libjllama.so` on Linux).
 
 **Critical**: The native library must be built from SoterIA's tracked fork of java-llama.cpp (see `lib/llama/BUILD.md`). The Maven artifact `de.kherud:llama` provides the Java API; the native must match that fork's llama.cpp version.
 
-Platform detection:
-- Windows: `jllama.dll`
-- macOS: `jllama.dylib`
-- Linux: `jllama.so`
+File name per OS matches `System.mapLibraryName("jllama")` (e.g. `jllama.dll` on Windows, `libjllama.so` on Linux, `libjllama.dylib` on macOS).
 
 ### `LLMLogger`
 

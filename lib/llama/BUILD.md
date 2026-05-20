@@ -5,7 +5,7 @@ This directory contains platform-specific jllama native libraries for SoterIA.
 ## Current Files
 
 - `jllama.dll` - Windows x64 native library
-- `jllama.so` - Linux x64 native library (to be added)
+- `libjllama.so` - Linux x64 (CMake output name; `LlamaNativeBootstrap` detects this via `System.mapLibraryName("jllama")`)
 
 ## Building jllama for Linux
 
@@ -49,10 +49,10 @@ ldd libjllama.so
 
 ### Installation
 
-Copy the compiled `libjllama.so` to this directory:
+Copy the compiled `libjllama.so` into this directory (standard JNI name on Linux; do not rename to `jllama.so`).
 
 ```bash
-cp libjllama.so /path/to/soteria/lib/llama/jllama.so
+cp libjllama.so /path/to/soteria/lib/llama/
 ```
 
 ## Notes

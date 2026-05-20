@@ -149,10 +149,12 @@ mvn clean package -DskipTests
 
 ### 5. Run the Application
 
+`de.kherud.llama.lib.path` must be a **directory** where `libjllama.so` lives (`LlamaLoader` appends `System.mapLibraryName("jllama")`). Either rely on `LlamaNativeBootstrap` when `lib/llama/libjllama.so` exists, or set it explicitly as below.
+
 ```bash
 mvn javafx:run \
     -Djava.library.path="/tmp:lib/sherpa-onnx/linux" \
-    -Dde.kherud.llama.lib.path=/tmp/libjllama.so
+    -Dde.kherud.llama.lib.path=/tmp
 ```
 
 ---

@@ -1,6 +1,6 @@
-#!/bin/bash
+#!/bin/sh
 # =============================================================================
-# SoterIA - Setup and launch script for Linux
+# SoterIA - Setup and launch script for Linux (POSIX sh)
 # =============================================================================
 set -e
 
@@ -11,12 +11,12 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
-info()    { echo -e "${BLUE}[INFO]${NC} $1"; }
-success() { echo -e "${GREEN}[OK]${NC}   $1"; }
-warn()    { echo -e "${YELLOW}[WARN]${NC} $1"; }
-error()   { echo -e "${RED}[ERROR]${NC} $1"; exit 1; }
+info()    { printf '%b\n' "${BLUE}[INFO]${NC} $1"; }
+success() { printf '%b\n' "${GREEN}[OK]${NC}   $1"; }
+warn()    { printf '%b\n' "${YELLOW}[WARN]${NC} $1"; }
+error()   { printf '%b\n' "${RED}[ERROR]${NC} $1"; exit 1; }
 
 echo ""
 echo "============================================="
@@ -103,7 +103,7 @@ success "System dependencies installed."
 info "Checking Java..."
 
 # Point the system default to Java 25 if update-alternatives is available
-if command -v update-alternatives &>/dev/null; then
+if command -v update-alternatives >/dev/null 2>&1; then
     JAVA25=$(update-alternatives --list java 2>/dev/null | grep -E "java-25|jdk-25" | head -1 || true)
     if [ -n "$JAVA25" ]; then
         sudo update-alternatives --set java "$JAVA25"
@@ -116,9 +116,9 @@ fi
 JAVA_VER=$(java -version 2>&1 | head -1)
 info "Active Java: $JAVA_VER"
 
-JAVA_MAJOR=$(java -version 2>&1 | grep -oP '(?<=version ")[0-9]+' | head -1)
+JAVA_MAJOR=$(java -version 2>&1 | sed -n 's/.*version "\([0-9][0-9]*\).*/\1/p' | head -1)
 if [ -z "$JAVA_MAJOR" ]; then
-    JAVA_MAJOR=$(java -version 2>&1 | grep -oP '[0-9]+\.[0-9]+' | head -1 | cut -d. -f1)
+    JAVA_MAJOR=$(java -version 2>&1 | sed -n 's/.*version "\([0-9]*\)\.[0-9]*.*/\1/p' | head -1)
 fi
 
 if [ "$JAVA_MAJOR" -lt 25 ] 2>/dev/null; then
@@ -256,7 +256,29 @@ mvn clean package -DskipTests -q \
 success "Build successful."
 
 # -----------------------------------------------------------------------------
-# 10. Launch the application
+# 10. Ensure writable log directories
+# -----------------------------------------------------------------------------
+info "Preparing log directories..."
+
+LOG_ROOT="${SCRIPT_DIR}/logs"
+
+mkdir -p "${LOG_ROOT}/voice" "${LOG_ROOT}/raw_llm" "${LOG_ROOT}/raw_classifier"
+
+if [ ! -w "$LOG_ROOT" ] || [ ! -w "${LOG_ROOT}/voice" ]; then
+    warn "logs/ is not writable by $(whoami). Attempting to fix ownership..."
+    if sudo chown -R "$(id -u)":"$(id -g)" "$LOG_ROOT"; then
+        success "logs/ ownership fixed."
+    else
+        warn "Could not fix logs/ ownership. Diagnostic logs may fail at runtime."
+    fi
+fi
+
+chmod -R u+rwX "$LOG_ROOT" 2>/dev/null || chmod -R 755 "$LOG_ROOT"
+
+success "Log directories ready."
+
+# -----------------------------------------------------------------------------
+# 11. Launch the application
 # -----------------------------------------------------------------------------
 echo ""
 echo "============================================="
@@ -268,4 +290,4 @@ export LD_LIBRARY_PATH="/tmp:${LD_LIBRARY_PATH}"
 
 mvn javafx:run \
     -Djava.library.path="/tmp:${SCRIPT_DIR}/lib/sherpa-onnx/linux" \
-    -Dde.kherud.llama.lib.path=/tmp/libjllama.so
+    -Dde.kherud.llama.lib.path=/tmp

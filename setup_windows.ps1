@@ -316,4 +316,4 @@ $libraryPath = "$sherpaDir;$env:TEMP"
 
 & mvn javafx:run `
     "-Djava.library.path=$libraryPath" `
-    "-Dde.kherud.llama.lib.path=$env:TEMP\jllama.dll"
+    "-Dde.kherud.llama.lib.path=$env:TEMP"
