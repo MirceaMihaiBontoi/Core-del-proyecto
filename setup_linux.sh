@@ -173,7 +173,6 @@ SHERPA_JAR="${SCRIPT_DIR}/lib/sherpa-onnx/sherpa-onnx-v1.13.0.jar"
 SHERPA_NATIVE_WIN_JAR="${SCRIPT_DIR}/lib/sherpa-onnx/sherpa-onnx-native-lib-win-x64-v1.13.0.jar"
 SHERPA_NATIVE_LINUX_JAR="${SCRIPT_DIR}/lib/sherpa-onnx/sherpa-onnx-native-linux-x64-1.13.0.jar"
 
-# sherpa-onnx Java API
 if [ -f "$SHERPA_JAR" ]; then
     mvn install:install-file -q \
         -Dfile="$SHERPA_JAR" \
@@ -186,7 +185,6 @@ else
     error "File not found: $SHERPA_JAR"
 fi
 
-# sherpa-onnx-native-win-x64 (needed to resolve the Windows profile in pom.xml, even on Linux)
 if [ -f "$SHERPA_NATIVE_WIN_JAR" ]; then
     mvn install:install-file -q \
         -Dfile="$SHERPA_NATIVE_WIN_JAR" \
@@ -221,18 +219,16 @@ mvn install:install-file -q \
 success "sherpa-onnx-native-linux-x64 registered."
 
 # -----------------------------------------------------------------------------
-# 7. Copy native libraries to /tmp
+# 7. Native library path (sherpa + jllama from lib/, not /tmp)
 # -----------------------------------------------------------------------------
-info "Copying native libraries to /tmp..."
-cp "${SHERPA_DIR}"/*.so /tmp/
-cp "${SCRIPT_DIR}/lib/llama/libjllama.so" /tmp/libjllama.so
+SHERPA_LIB_PATH="${SCRIPT_DIR}/lib/sherpa-onnx/linux"
+LLAMA_LIB_PATH="${SCRIPT_DIR}/lib/llama"
 
-# The sherpa-onnx JAR calls System.loadLibrary("sherpa-onnx-jni"), which looks for
-# "libsherpa-onnx-jni.so" on java.library.path. Also create a symlink with underscores
-# in case the JAR uses "sherpa_onnx_jni" (some versions do).
-ln -sf /tmp/libsherpa-onnx-jni.so /tmp/libsherpa_onnx_jni.so 2>/dev/null || true
+# Stale copies from older setups can shadow lib/ via java.library.path
+rm -f /tmp/libonnxruntime.so /tmp/libjllama.so /tmp/libsherpa-onnx-*.so 2>/dev/null || true
 
-success "Libraries copied to /tmp."
+export LD_LIBRARY_PATH="${SHERPA_LIB_PATH}:${LD_LIBRARY_PATH}"
+success "Native library path: ${SHERPA_LIB_PATH}"
 
 # -----------------------------------------------------------------------------
 # 8. Configure audio (PulseAudio / PipeWire / WSLg)
@@ -248,7 +244,6 @@ fi
 # 9. Build the project
 # -----------------------------------------------------------------------------
 info "Building SoterIA with Maven..."
-export LD_LIBRARY_PATH="/tmp:${LD_LIBRARY_PATH}"
 
 mvn clean package -DskipTests -q \
     || error "Build failed. Check the Maven output above."
@@ -286,8 +281,8 @@ success "All done. Starting SoterIA..."
 echo "============================================="
 echo ""
 
-export LD_LIBRARY_PATH="/tmp:${LD_LIBRARY_PATH}"
+export LD_LIBRARY_PATH="${SHERPA_LIB_PATH}:${LD_LIBRARY_PATH}"
 
 mvn javafx:run \
-    -Djava.library.path="/tmp:${SCRIPT_DIR}/lib/sherpa-onnx/linux" \
-    -Dde.kherud.llama.lib.path=/tmp
+    -Djava.library.path="${SHERPA_LIB_PATH}" \
+    -Dde.kherud.llama.lib.path="${LLAMA_LIB_PATH}"

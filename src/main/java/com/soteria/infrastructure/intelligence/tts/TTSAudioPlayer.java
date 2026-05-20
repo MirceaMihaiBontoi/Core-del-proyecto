@@ -1,5 +1,7 @@
 package com.soteria.infrastructure.intelligence.tts;
 
+import com.soteria.infrastructure.intelligence.system.PlatformDetector;
+
 import javax.sound.sampled.*;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -33,6 +35,8 @@ public class TTSAudioPlayer implements AutoCloseable {
     private volatile boolean running = false;
     private volatile float volume = 1.0f;
     private byte[] previousChunkTail = null;
+    /** Actual {@link SourceDataLine} rate; Kokoro PCM is always {@link #SAMPLE_RATE}. */
+    private int lineSampleRate = SAMPLE_RATE;
 
     public TTSAudioPlayer(TTSLogger ttsLogger) {
         this.ttsLogger = ttsLogger;
@@ -111,12 +115,16 @@ public class TTSAudioPlayer implements AutoCloseable {
 
     private boolean openPersistentLine() {
         try {
+            if ("linux".equals(PlatformDetector.detectOS())) {
+                return openLinuxPersistentLine();
+            }
             AudioFormat format = new AudioFormat(SAMPLE_RATE, 16, 1, true, false);
             DataLine.Info info = new DataLine.Info(SourceDataLine.class, format);
             persistentLine = (SourceDataLine) AudioSystem.getLine(info);
             persistentLine.open(format, (int) (format.getFrameSize() * format.getSampleRate() / 10));
+            lineSampleRate = (int) persistentLine.getFormat().getSampleRate();
             persistentLine.start();
-            ttsLogger.info("TTS audio line opened: 24000Hz 16-bit mono");
+            ttsLogger.info("TTS audio line opened: " + lineSampleRate + "Hz 16-bit mono");
             return true;
         } catch (Exception e) {
             ttsLogger.error("Failed to open audio line", e);
@@ -124,8 +132,67 @@ public class TTSAudioPlayer implements AutoCloseable {
         }
     }
 
+    /**
+     * PulseAudio/PipeWire on Linux often rejects or mis-handles 24 kHz playback.
+     * Open a standard device rate and resample Kokoro output before writing.
+     */
+    private boolean openLinuxPersistentLine() {
+        for (int rate : new int[]{48000, 44100, SAMPLE_RATE}) {
+            SourceDataLine line = tryOpenOutputLine(rate);
+            if (line == null) continue;
+            persistentLine = line;
+            lineSampleRate = (int) line.getFormat().getSampleRate();
+            line.start();
+            String resampleNote = lineSampleRate != SAMPLE_RATE
+                    ? ", resampling from " + SAMPLE_RATE
+                    : "";
+            ttsLogger.info("TTS audio line opened (Linux): " + lineSampleRate + "Hz 16-bit mono" + resampleNote);
+            return true;
+        }
+        ttsLogger.error("Failed to open audio line", new LineUnavailableException("No Linux output line at 48/44.1/24 kHz"));
+        return false;
+    }
+
+    private SourceDataLine tryOpenOutputLine(int sampleRate) {
+        AudioFormat format = new AudioFormat(sampleRate, 16, 1, true, false);
+        DataLine.Info info = new DataLine.Info(SourceDataLine.class, format);
+        int bufferBytes = format.getFrameSize() * sampleRate / 5;
+
+        try {
+            if (AudioSystem.isLineSupported(info)) {
+                SourceDataLine line = (SourceDataLine) AudioSystem.getLine(info);
+                line.open(format, bufferBytes);
+                return line;
+            }
+        } catch (Exception e) {
+            ttsLogger.warn("Default output line failed at " + sampleRate + "Hz: " + e.getMessage());
+        }
+
+        for (Mixer.Info mixerInfo : AudioSystem.getMixerInfo()) {
+            String name = mixerInfo.getName().toLowerCase();
+            if (!name.contains("pulse") && !name.contains("default") && !name.contains("output")) {
+                continue;
+            }
+            try {
+                Mixer mixer = AudioSystem.getMixer(mixerInfo);
+                if (!mixer.isLineSupported(info)) continue;
+                SourceDataLine line = (SourceDataLine) mixer.getLine(info);
+                line.open(format, bufferBytes);
+                ttsLogger.info("TTS using mixer: " + mixerInfo.getName());
+                return line;
+            } catch (Exception ignored) {
+                // try next mixer
+            }
+        }
+        return null;
+    }
+
     private void playPcm(byte[] audioData) {
         if ((persistentLine == null || !persistentLine.isOpen()) && !openPersistentLine()) return;
+
+        if (lineSampleRate != SAMPLE_RATE) {
+            audioData = resamplePcm16(audioData, SAMPLE_RATE, lineSampleRate);
+        }
 
         int frameSize = persistentLine.getFormat().getFrameSize();
         for (int offset = 0; offset < audioData.length && !interruptRequested.get(); offset += PLAYBACK_CHUNK_BYTES) {
@@ -189,6 +256,22 @@ public class TTSAudioPlayer implements AutoCloseable {
     private static void writeSample(byte[] pcm, int index, int value) {
         pcm[2 * index] = (byte) (value & 0xFF);
         pcm[2 * index + 1] = (byte) ((value >>> 8) & 0xFF);
+    }
+
+    private static byte[] resamplePcm16(byte[] pcm, int fromRate, int toRate) {
+        if (fromRate == toRate || pcm.length < 2) return pcm;
+        int inSamples = pcm.length / 2;
+        int outSamples = Math.max(1, (int) ((long) inSamples * toRate / fromRate));
+        byte[] out = new byte[outSamples * 2];
+        for (int i = 0; i < outSamples; i++) {
+            float srcPos = (float) i * fromRate / toRate;
+            int idx = (int) srcPos;
+            float frac = srcPos - idx;
+            short s0 = readSample(pcm, Math.min(idx, inSamples - 1));
+            short s1 = readSample(pcm, Math.min(idx + 1, inSamples - 1));
+            writeSample(out, i, Math.round(s0 + frac * (s1 - s0)));
+        }
+        return out;
     }
 
     public byte[] generateSilence(int ms) {

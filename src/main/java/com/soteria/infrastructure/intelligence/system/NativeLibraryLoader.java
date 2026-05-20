@@ -89,15 +89,10 @@ public class NativeLibraryLoader {
 
     private static void loadLinux() {
         logger.fine("loadLinux() starting...");
-        
-        // Try system path first
-        if (tryLoadFromSystem()) {
-            logger.info("Loaded from system path");
-            return;
-        }
 
-        // On Linux, use System.load() with absolute paths since modifying java.library.path
-        // after JVM startup doesn't work reliably
+        // Always load from lib/sherpa-onnx/linux in dependency order. tryLoadFromSystem() only
+        // pulls onnxruntime + jni from java.library.path (/tmp) and skips cxx-api/c-api,
+        // which breaks Kokoro TTS output while STT may still appear to work.
         String userDir = System.getProperty("user.dir");
         Path platformDir = Paths.get(userDir, "lib", "sherpa-onnx", "linux");
         logger.log(Level.FINE, "Platform directory: {0}", platformDir);

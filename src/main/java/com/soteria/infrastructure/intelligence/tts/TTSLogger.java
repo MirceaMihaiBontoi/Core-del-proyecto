@@ -27,7 +27,11 @@ public class TTSLogger {
     public void setup() {
         try {
             Path logDir = Paths.get("logs", "voice");
-            if (!Files.exists(logDir)) Files.createDirectories(logDir);
+            Files.createDirectories(logDir);
+            Path logFile = Paths.get(LOG_PATH);
+            if (Files.exists(logFile) && !Files.isWritable(logFile)) {
+                Files.delete(logFile);
+            }
             initLogFile(LOG_PATH, "--- SoterIA TTS System Log (Autocleaned) ---\n");
         } catch (IOException e) {
             logger.log(Level.WARNING, e, () -> "Failed to initialize TTS logging system");

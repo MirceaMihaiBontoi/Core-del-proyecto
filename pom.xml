@@ -19,6 +19,7 @@
         <javafx.version>25.0.1</javafx.version>
         <jackson.version>2.18.2</jackson.version>
         <junit.version>5.11.3</junit.version>
+        <sherpa.library.path.suffix>${path.separator}${java.io.tmpdir}</sherpa.library.path.suffix>
     </properties>
 
     <dependencies>
@@ -67,7 +68,6 @@
             <scope>test</scope>
         </dependency>
 
-
         <dependency>
             <groupId>de.kherud</groupId>
             <artifactId>llama</artifactId>
@@ -75,7 +75,6 @@
             <scope>system</scope>
             <systemPath>${project.basedir}/lib/llama/llama-LOCAL.jar</systemPath>
         </dependency>
-
 
         <dependency>
             <groupId>org.apache.lucene</groupId>
@@ -127,7 +126,6 @@
             <version>2.18.0</version>
         </dependency>
 
-        <!-- sherpa-onnx JNI (local) for TTS -->
         <dependency>
             <groupId>com.k2fsa.sherpa</groupId>
             <artifactId>sherpa-onnx</artifactId>
@@ -172,6 +170,7 @@
             </activation>
             <properties>
                 <sherpa.library.path>${project.basedir}/lib/sherpa-onnx/linux</sherpa.library.path>
+                <sherpa.library.path.suffix></sherpa.library.path.suffix>
             </properties>
             <dependencies>
                 <dependency>
@@ -228,7 +227,7 @@
                     <mainClass>com.soteria.ui.MainApp</mainClass>
                     <options>
                         <option>--enable-native-access=javafx.graphics</option>
-                        <option>-Djava.library.path=${sherpa.library.path}${path.separator}${java.io.tmpdir}</option>
+                        <option>-Djava.library.path=${sherpa.library.path}${sherpa.library.path.suffix}</option>
                         <option>-Djna.library.path=${sherpa.library.path}</option>
                         <option>--enable-native-access=ALL-UNNAMED</option>
                         <option>--add-modules</option>
